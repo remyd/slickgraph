@@ -1,0 +1,7 @@
+apply plugin: 'application'
+
+dependencies {
+	compile project(':core');
+}
+
+mainClassName = 'fr.caladan.slickgraph.demo.SlickGraphDemo'
