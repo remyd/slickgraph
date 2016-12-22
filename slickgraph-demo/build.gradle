@@ -1,7 +1,9 @@
-apply plugin: 'application'
-
 dependencies {
 	compile project(':slickgraph-core');
 }
 
-mainClassName = 'fr.caladan.slickgraph.demo.SlickGraphDemo'
+jar {
+	manifest {
+		attributes 'Main-Class' : 'fr.caladan.slickgraph.demo.Main'
+	}
+}
