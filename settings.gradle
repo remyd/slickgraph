@@ -1,2 +1,2 @@
-include 'core'
-include 'demo'
+include 'slickgraph-core'
+include 'slickgraph-demo'
