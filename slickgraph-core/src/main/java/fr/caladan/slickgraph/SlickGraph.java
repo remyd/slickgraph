@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import javafx.beans.InvalidationListener;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.canvas.Canvas;
@@ -28,6 +29,8 @@ public class SlickGraph extends Canvas {
 	}
 	public void setData(List<Double> data) {
 		dataProperty.set(data);
+		start = data.get(0);
+		end = data.get(data.size() - 1);
 	}
 
 	/** Bandwidth to use when computing the kernel estimation */
@@ -64,10 +67,14 @@ public class SlickGraph extends Canvas {
 		histogramMax = -1;
 		vertices = new ArrayList<Vertex>();
 
-		dataProperty.addListener(e -> {
+		InvalidationListener l = observable -> {
 			computeVertices();
 			render();
-		});
+		};
+
+		dataProperty.addListener(l);
+		widthProperty().addListener(l);
+		heightProperty().addListener(l);
 	}
 
 	/**
@@ -160,10 +167,15 @@ public class SlickGraph extends Canvas {
 
 	/** Compute the vertices of the graph */
 	protected void computeVertices() {
+		// nothing to do if not shown yet
+		if (getWidth() == 0. || getHeight() == 0.) {
+			return;
+		}
+
 		// clear the vertices list if not empty and initialize all the vertices
 		vertices.clear();
 		for (int i = 0; i < getWidth() + 1; i++) {
-			vertices.add(new Vertex(i, 0, Color.BLACK));
+			vertices.add(new Vertex(i, 0., Color.BLACK));
 		}
 
 		buildHistogram();
@@ -173,17 +185,17 @@ public class SlickGraph extends Canvas {
 				.summaryStatistics()
 				.getMax();
 
-		double scalingFactor = 1.2 / (max / histogramMax);
+		double scalingFactor = 2. / (max / histogramMax);
 		vertices.forEach(v -> v.y *= scalingFactor);
 
 		// compute the color associated to each vertex that encode the difference between the real value and the smoothed value
 		double h = getHeight();
-		IntStream.range(0, vertices.size()).parallel().forEach(i -> {
+		IntStream.range(0, histogram.size()).parallel().forEach(i -> {
 			Vertex vertex = vertices.get(i);
 			double alpha = histogram.get(i) == 0 ? 0 : 1. / (1 + vertex.y / histogram.get(i));
 
 			vertex.color = Color.rgb(0, 0, 0, alpha);
-			vertex.y = h - vertex.y;
+			vertex.y = (1. - vertex.y) * h;
 		});
 
 		// update the coordinate of the last vertex
@@ -200,10 +212,18 @@ public class SlickGraph extends Canvas {
 		gc.fillRect(0, 0, getWidth(), getHeight());
 
 		double h = getHeight();
+
+		// render the shading
 		vertices.forEach(v -> {
 			gc.setStroke(v.color);
 			gc.strokeLine(v.x, h, v.x, v.y);
 		});
+
+		// render the curve
+		gc.setStroke(Color.BLUE);
+		for (int i = 0; i < vertices.size() - 1; i++) {
+			gc.strokeLine(vertices.get(i).x, vertices.get(i).y, vertices.get(i + 1).x, vertices.get(i + 1).y);
+		}
 	}
 
 }
