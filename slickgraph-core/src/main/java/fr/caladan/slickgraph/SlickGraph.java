@@ -10,6 +10,7 @@ import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.paint.Color;
 
 /**
@@ -67,14 +68,20 @@ public class SlickGraph extends Canvas {
 		histogramMax = -1;
 		vertices = new ArrayList<Vertex>();
 
-		InvalidationListener l = observable -> {
+		InvalidationListener propertiesListener = observable -> {
 			computeVertices();
 			render();
 		};
 
-		dataProperty.addListener(l);
-		widthProperty().addListener(l);
-		heightProperty().addListener(l);
+		dataProperty.addListener(propertiesListener);
+		widthProperty().addListener(propertiesListener);
+		heightProperty().addListener(propertiesListener);
+
+		addEventHandler(ScrollEvent.ANY, e -> {
+			zoom(e.getDeltaY());
+			computeVertices();
+			render();
+		});
 	}
 
 	/**
@@ -201,6 +208,22 @@ public class SlickGraph extends Canvas {
 		// update the coordinate of the last vertex
 		Vertex lastVertex = vertices.get(vertices.size() - 1);
 		lastVertex.y = h - lastVertex.y;
+	}
+
+	/**
+	 * Perform a zoom
+	 *
+	 * @param z Y-delta of the zoom
+	 */
+	protected void zoom(double z) {
+		double delta = 100. * (end - start) / getWidth();
+		if (z > 0) {
+			start += delta;
+			end -= delta;
+		} else {
+			start -= delta;
+			end += delta;
+		}
 	}
 
 	/** Draw the graph */
