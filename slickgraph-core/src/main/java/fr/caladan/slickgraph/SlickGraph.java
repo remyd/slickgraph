@@ -65,7 +65,7 @@ public class SlickGraph extends Canvas {
 	/** Public default constructor - initializes the properties */
 	public SlickGraph() {
 		dataProperty = new SimpleObjectProperty<List<Double>>();
-		kernelBandWidthProperty = new SimpleDoubleProperty(1.0);
+		kernelBandWidthProperty = new SimpleDoubleProperty(5.0);
 		histogram = new ArrayList<Double>();
 		start = -1;
 		end = -1;
@@ -205,7 +205,7 @@ public class SlickGraph extends Canvas {
 				.summaryStatistics()
 				.getMax();
 
-		double scalingFactor = 2. / (max / histogramMax);
+		double scalingFactor = 1.2 / (max / histogramMax);
 		vertices.forEach(v -> v.y *= scalingFactor);
 
 		// compute the color associated to each vertex that encode the difference between the real value and the smoothed value
@@ -215,12 +215,12 @@ public class SlickGraph extends Canvas {
 			double alpha = histogram.get(i) == 0 ? 0 : 1. / (1 + vertex.y / histogram.get(i));
 
 			vertex.color = Color.rgb(0, 0, 0, alpha);
-			vertex.y = (1. - vertex.y) * h;
+			vertex.y = (1. - vertex.y / (max * scalingFactor) * .8) * h;
 		});
 
 		// update the coordinate of the last vertex
 		Vertex lastVertex = vertices.get(vertices.size() - 1);
-		lastVertex.y = h - lastVertex.y;
+		lastVertex.y = h - lastVertex.y / max * h * .8;
 	}
 
 	/**
@@ -229,7 +229,7 @@ public class SlickGraph extends Canvas {
 	 * @param z Y-delta of the zoom
 	 */
 	protected void zoom(double z) {
-		double delta = 100. * (end - start) / getWidth();
+		double delta = 50. * (end - start) / getWidth();
 		if (z > 0) {
 			start += delta;
 			end -= delta;
