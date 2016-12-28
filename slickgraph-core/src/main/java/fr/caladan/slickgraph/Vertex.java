@@ -4,8 +4,6 @@ import javafx.scene.paint.Color;
 
 /**
  * 2D vertex for rendering in JavaFX canvas
- *
- * @author "Rémy Dautriche <remy.dautriche@caladan.fr>"
  */
 public class Vertex {
 

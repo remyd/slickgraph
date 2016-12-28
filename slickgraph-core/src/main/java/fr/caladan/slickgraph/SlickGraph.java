@@ -19,8 +19,6 @@ import javafx.scene.paint.Color;
  * Slick Graphs mitigate quantization artifacts by using the smallest possible binning intervals, i.e. pixels.
  * They nonetheless provide smooth variations by using a convolution with a kernel.
  * The filtered-out information that would be lost by this smoothing step is encoded using the luminance channel.
- *
- * @author "Rémy Dautriche <remy.dautriche@caladan.fr>"
  */
 public class SlickGraph extends Canvas {
 
@@ -31,8 +29,13 @@ public class SlickGraph extends Canvas {
 	}
 	public void setData(List<Double> data) {
 		dataProperty.set(data);
-		start = data.get(0);
-		end = data.get(data.size() - 1);
+		if (!data.isEmpty()) {
+			start = data.get(0);
+			end = data.get(data.size() - 1);
+		} else {
+			start = -1;
+			end = -1;
+		}
 	}
 
 	/** Bandwidth to use when computing the kernel estimation */
@@ -187,8 +190,8 @@ public class SlickGraph extends Canvas {
 
 	/** Compute the vertices of the graph */
 	protected void computeVertices() {
-		// nothing to do if not shown yet
-		if (getWidth() == 0. || getHeight() == 0.) {
+		// nothing to do if not shown yet or not data
+		if (getWidth() == 0. || getHeight() == 0. || dataProperty.get() == null) {
 			return;
 		}
 

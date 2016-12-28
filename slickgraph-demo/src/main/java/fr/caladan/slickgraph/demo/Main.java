@@ -10,8 +10,6 @@ import javafx.stage.Stage;
 
 /**
  * Demo for basic usage of Slick Graph
- *
- * @author "Rémy Dautriche <remy.dautriche@caladan.fr>"
  */
 public class Main extends Application {
 
