@@ -84,11 +84,20 @@ public class SlickGraph extends Canvas {
 		dataProperty.addListener(propertiesListener);
 		widthProperty().addListener(propertiesListener);
 		heightProperty().addListener(propertiesListener);
+		kernelBandWidthProperty.addListener(e -> {
+			computeConvolution();
+			scaleAndShadeVertices();
+			render();
+		});
 
 		addEventHandler(ScrollEvent.ANY, e -> {
-			zoom(e.getDeltaY());
-			computeVertices();
-			render();
+			if (e.isControlDown()) {
+				setKernelBandWidth(getKernelBandWidth() + getKernelBandWidth() / ((e.getDeltaY() > 0 ? 1 : -1) * 10.));
+			} else {
+				zoom(e.getDeltaY());
+				computeVertices();
+				render();
+			}
 		});
 
 		addEventHandler(MouseEvent.MOUSE_PRESSED, e -> origMouseX = e.getSceneX());
@@ -176,6 +185,12 @@ public class SlickGraph extends Canvas {
 	protected void computeConvolution() {
 		List<Double> gaussianValues = gaussianKernel();
 
+		// clear the vertices list if not empty and initialize all the vertices
+		vertices.clear();
+		for (int i = 0; i < getWidth() + 1; i++) {
+			vertices.add(new Vertex(i, 0., Color.BLACK));
+		}
+
 		// compute the convolution of the time serie width the kernel
 		for (int i = 2; i < histogram.size(); i++) {
 			for (int k = 0; k < gaussianValues.size(); k++) {
@@ -188,22 +203,9 @@ public class SlickGraph extends Canvas {
 		}
 	}
 
-	/** Compute the vertices of the graph */
-	protected void computeVertices() {
-		// nothing to do if not shown yet or not data
-		if (getWidth() == 0. || getHeight() == 0. || dataProperty.get() == null) {
-			return;
-		}
-
-		// clear the vertices list if not empty and initialize all the vertices
-		vertices.clear();
-		for (int i = 0; i < getWidth() + 1; i++) {
-			vertices.add(new Vertex(i, 0., Color.BLACK));
-		}
-
-		buildHistogram();
-		computeConvolution();
-		double max = vertices.stream()
+	/** Apply a scaling factor on the vertical coordinate of the vertices to ensure a correct window fitting and compute the Slick Graph shading */
+	protected void scaleAndShadeVertices() {
+			double max = vertices.stream()
 				.mapToDouble(v -> v.y)
 				.summaryStatistics()
 				.getMax();
@@ -224,6 +226,18 @@ public class SlickGraph extends Canvas {
 		// update the coordinate of the last vertex
 		Vertex lastVertex = vertices.get(vertices.size() - 1);
 		lastVertex.y = h - lastVertex.y / max * h * .8;
+	}
+
+	/** Compute the vertices of the graph */
+	protected void computeVertices() {
+		// nothing to do if not shown yet or not data
+		if (getWidth() == 0. || getHeight() == 0. || dataProperty.get() == null) {
+			return;
+		}
+
+		buildHistogram();
+		computeConvolution();
+		scaleAndShadeVertices();
 	}
 
 	/**
