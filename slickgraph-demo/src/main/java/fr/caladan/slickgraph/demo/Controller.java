@@ -10,8 +10,6 @@ import fr.caladan.slickgraph.SlickGraph;
 
 /**
  * Controller showing how to bind the slick graph component events
- *
- * @author "Rémy Dautriche <remy.dautriche@caladan.fr>"
  */
 public class Controller implements Initializable {
 

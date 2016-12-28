@@ -5,8 +5,6 @@ import java.util.List;
 
 /**
  * Generate a timeseries that follows the Poisson distribution
- *
- * @author "Rémy Dautriche <remy.dautriche@caladan.fr>"
  */
 public class DataGenerator {
 
