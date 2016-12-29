@@ -1,16 +1,17 @@
 package fr.caladan.slickgraph;
 
+import java.awt.Toolkit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 
-import javafx.beans.InvalidationListener;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
+import javafx.stage.Screen;
 
 /**
  * Slick Graph is a binning and smoothing technique for time series visualization.
@@ -60,6 +61,17 @@ public class SlickGraph extends Canvas {
 	/** Vertices of the graph */
 	protected List<Vertex> vertices;
 
+	/** Horizontal scale factor */
+	protected SimpleDoubleProperty xScaleProperty;
+
+	/** Vertical scale factor */
+	protected SimpleDoubleProperty yScaleProperty;
+
+	/** Width (in physical pixels) of the canvas */
+	protected double scaledWidth;
+
+	/** Height (in physical pixels) of the canvas */
+	protected double scaledHeight;
 
 	/** Public default constructor - initializes the properties */
 	public SlickGraph() {
@@ -70,15 +82,17 @@ public class SlickGraph extends Canvas {
 		end = -1;
 		histogramMax = -1;
 		vertices = new ArrayList<Vertex>();
+		xScaleProperty = new SimpleDoubleProperty(1.);
+		yScaleProperty = new SimpleDoubleProperty(1.);
 
-		InvalidationListener propertiesListener = observable -> {
+		dataProperty.addListener(e -> {
 			computeVertices();
 			render();
-		};
+		});
 
-		dataProperty.addListener(propertiesListener);
-		widthProperty().addListener(propertiesListener);
-		heightProperty().addListener(propertiesListener);
+		widthProperty().addListener(e -> handleHiDPI());
+		heightProperty().addListener(e -> handleHiDPI());
+
 		kernelBandWidthProperty.addListener(e -> {
 			computeConvolution();
 			scaleAndShadeVertices();
@@ -97,6 +111,30 @@ public class SlickGraph extends Canvas {
 		setData(data);
 	}
 
+	/** Set the scale on the canvas to have a 1:1 pixel mapping */
+	protected void handleHiDPI() {
+		double nativeWidth = Toolkit.getDefaultToolkit().getScreenSize().getWidth();
+		double nativeHeight = Toolkit.getDefaultToolkit().getScreenSize().getHeight();
+		double screenWidth = Screen.getPrimary().getVisualBounds().getWidth();
+		double screenHeight = Screen.getPrimary().getVisualBounds().getHeight();
+
+		double xScale = nativeWidth / screenWidth;
+		double yScale = nativeHeight / screenHeight;
+
+		scaledWidth = getWidth() * xScale;
+		scaledHeight = getHeight() * yScale;
+
+		// back to scale 1:1
+		getGraphicsContext2D().scale(xScaleProperty.get(), yScaleProperty.get());
+		getGraphicsContext2D().scale(1. / xScale, 1. / yScale);
+
+		xScaleProperty.set(xScale);
+		yScaleProperty.set(yScale);
+
+		computeVertices();
+		render();
+	}
+
 	/**
 	 * Return the list of the array of events corresponding to the bounds of the pixels in a given time window
 	 *
@@ -105,8 +143,8 @@ public class SlickGraph extends Canvas {
 	 * @return
 	 */
 	private double[] buildPixelBounds(double start, double end) {
-		double timeSliceDuration = (end - start) / getWidth();
-		double[] pixelBounds = new double[(int) (getWidth() + 1)];
+		double timeSliceDuration = (end - start) / scaledWidth;
+		double[] pixelBounds = new double[(int) (scaledWidth + 1)];
 
 		for (int i = 0; i < pixelBounds.length; i++) {
 			pixelBounds[i] = start + i * timeSliceDuration;
@@ -131,9 +169,8 @@ public class SlickGraph extends Canvas {
 			listIndices.add(boundEvent);
 		}
 
-		double nbTimeSlices = getWidth();
 		for (int i = 0; i < listIndices.size() - 1; i++) {
-			histogram.add((listIndices.get(i + 1) - listIndices.get(i)) / (end - start) * nbTimeSlices);
+			histogram.add((listIndices.get(i + 1) - listIndices.get(i)) / (end - start) * scaledWidth);
 		}
 
 		histogramMax = histogramMax == -1 ? Collections.max(histogram) : histogramMax;
@@ -164,7 +201,7 @@ public class SlickGraph extends Canvas {
 
 		// clear the vertices list if not empty and initialize all the vertices
 		vertices.clear();
-		for (int i = 0; i < getWidth() + 1; i++) {
+		for (int i = 0; i < scaledWidth + 1; i++) {
 			vertices.add(new Vertex(i, 0., Color.BLACK));
 		}
 
@@ -191,18 +228,17 @@ public class SlickGraph extends Canvas {
 		vertices.forEach(v -> v.y *= scalingFactor);
 
 		// compute the color associated to each vertex that encode the difference between the real value and the smoothed value
-		double h = getHeight();
 		IntStream.range(0, histogram.size()).parallel().forEach(i -> {
 			Vertex vertex = vertices.get(i);
 			double alpha = histogram.get(i) == 0 ? 0 : 1. / (1 + vertex.y / histogram.get(i));
 
 			vertex.color = Color.rgb(0, 0, 0, alpha);
-			vertex.y = (1. - vertex.y / (max * scalingFactor) * .8) * h;
+			vertex.y = (1. - vertex.y / (max * scalingFactor) * .8) * scaledHeight;
 		});
 
 		// update the coordinate of the last vertex
 		Vertex lastVertex = vertices.get(vertices.size() - 1);
-		lastVertex.y = h - lastVertex.y / max * h * .8;
+		lastVertex.y = scaledHeight - lastVertex.y / max * scaledHeight * .8;
 	}
 
 	/** Compute the vertices of the graph */
@@ -223,7 +259,7 @@ public class SlickGraph extends Canvas {
 	 * @param z Y-delta of the zoom
 	 */
 	public void zoom(double z) {
-		double delta = 50. * (end - start) / getWidth();
+		double delta = 50. * (end - start) / scaledWidth;
 		if (z > 0) {
 			start += delta;
 			end -= delta;
@@ -242,7 +278,7 @@ public class SlickGraph extends Canvas {
 	 * @param deltaX Horizontal displacement of the mouse cursor
 	 */
 	public void pan(double deltaX) {
-		double delta = deltaX * (end - start) / getWidth();
+		double delta = deltaX * (end - start) / scaledWidth;
 		start += delta;
 		end += delta;
 
@@ -256,14 +292,12 @@ public class SlickGraph extends Canvas {
 
 		// clear the canvas
 		gc.setFill(Color.WHITE);
-		gc.fillRect(0, 0, getWidth(), getHeight());
-
-		double h = getHeight();
+		gc.fillRect(0, 0, scaledWidth, scaledHeight);
 
 		// render the shading
 		vertices.forEach(v -> {
 			gc.setStroke(v.color);
-			gc.strokeLine(v.x, h, v.x, v.y);
+			gc.strokeLine(v.x, scaledHeight, v.x, v.y);
 		});
 
 		// render the curve
