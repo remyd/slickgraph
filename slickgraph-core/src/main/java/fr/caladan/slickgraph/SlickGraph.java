@@ -94,8 +94,7 @@ public class SlickGraph extends Canvas {
 		heightProperty().addListener(e -> handleHiDPI());
 
 		kernelBandWidthProperty.addListener(e -> {
-			computeConvolution();
-			scaleAndShadeVertices();
+			computeVertices();
 			render();
 		});
 	}
@@ -143,8 +142,9 @@ public class SlickGraph extends Canvas {
 	 * @return
 	 */
 	private double[] buildPixelBounds(double start, double end) {
-		double timeSliceDuration = (end - start) / scaledWidth;
-		double[] pixelBounds = new double[(int) (scaledWidth + 1)];
+		int toTrim = (int) Math.floor(6. * kernelBandWidthProperty.get());
+		double timeSliceDuration = (end - start) / (scaledWidth + toTrim);
+		double[] pixelBounds = new double[(int) (scaledWidth + 1 + toTrim)];
 
 		for (int i = 0; i < pixelBounds.length; i++) {
 			pixelBounds[i] = start + i * timeSliceDuration;
@@ -197,15 +197,14 @@ public class SlickGraph extends Canvas {
 
 	/** Convolve the histogram with a statistic kernel */
 	protected void computeConvolution() {
-		List<Double> gaussianValues = gaussianKernel();
-
 		// clear the vertices list if not empty and initialize all the vertices
 		vertices.clear();
-		for (int i = 0; i < scaledWidth + 1; i++) {
+		for (int i = 0; i < histogram.size(); i++) { // scaledWidth + 1 + (int) Math.floor(6. * kernelBandWidthProperty.get()); i++) {
 			vertices.add(new Vertex(i, 0., Color.BLACK));
 		}
 
 		// compute the convolution of the time serie width the kernel
+		List<Double> gaussianValues = gaussianKernel();
 		for (int i = 2; i < histogram.size(); i++) {
 			for (int k = 0; k < gaussianValues.size(); k++) {
 				int j = (int) Math.ceil(i + k - gaussianValues.size() / 2.);
@@ -239,6 +238,11 @@ public class SlickGraph extends Canvas {
 		// update the coordinate of the last vertex
 		Vertex lastVertex = vertices.get(vertices.size() - 1);
 		lastVertex.y = scaledHeight - lastVertex.y / max * scaledHeight * .8;
+
+		// trim 3 times the kernel bandwidth at each side
+		int toTrim = (int) Math.floor(3. * kernelBandWidthProperty.get());
+		vertices = vertices.subList(toTrim, vertices.size() - toTrim);
+		vertices.forEach(v -> v.x -= toTrim);
 	}
 
 	/** Compute the vertices of the graph */

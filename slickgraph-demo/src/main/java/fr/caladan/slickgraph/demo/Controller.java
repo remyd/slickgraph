@@ -55,7 +55,7 @@ public class Controller implements Initializable {
 		});
 
 		// feed the graph
-		slickGraph.setData(DataGenerator.generateTimeseries(1000));
+		slickGraph.setData(DataGenerator.generateTimeseries(10000));
 	}
 
 }
