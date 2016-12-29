@@ -169,9 +169,20 @@ public class SlickGraph extends Canvas {
 			listIndices.add(boundEvent);
 		}
 
+		// push 3 * kernel bandwidth at each side of the histogram, to be trimmed -> prevent the curve to be distorded at the boundaries of the canvas
+		/* double diffIdx = (listIndices.get(1) - listIndices.get(0)) / (end - start) * scaledWidth;
+		for (int i = 0; i < Math.min(listIndices.size() - 1, (int) Math.floor(3. * kernelBandWidthProperty.get())); i++) {
+			histogram.add((listIndices.get(i + 1) - listIndices.get(i)) / (end - start) * scaledWidth);
+		} */
+
 		for (int i = 0; i < listIndices.size() - 1; i++) {
 			histogram.add((listIndices.get(i + 1) - listIndices.get(i)) / (end - start) * scaledWidth);
 		}
+
+		/* diffIdx = (listIndices.get(listIndices.size() - 1) - listIndices.get(listIndices.size() - 2)) / (end - start) * scaledWidth;
+		for (int i = listIndices.size() - (int) Math.floor(3. * kernelBandWidthProperty.get()) - 1; i < listIndices.size() - 1; i++) {
+			histogram.add((listIndices.get(listIndices.size() - i + 1) - listIndices.get(listIndices.size() - i)) / (end - start) * scaledWidth);
+		} */
 
 		histogramMax = histogramMax == -1 ? Collections.max(histogram) : histogramMax;
 	}
