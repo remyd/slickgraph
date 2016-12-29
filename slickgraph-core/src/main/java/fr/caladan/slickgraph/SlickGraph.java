@@ -10,8 +10,6 @@ import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.input.ScrollEvent;
 import javafx.scene.paint.Color;
 
 /**
@@ -62,8 +60,6 @@ public class SlickGraph extends Canvas {
 	/** Vertices of the graph */
 	protected List<Vertex> vertices;
 
-	/** Horizontal coordinate of the last mouse event */
-	protected double origMouseX;
 
 	/** Public default constructor - initializes the properties */
 	public SlickGraph() {
@@ -74,7 +70,6 @@ public class SlickGraph extends Canvas {
 		end = -1;
 		histogramMax = -1;
 		vertices = new ArrayList<Vertex>();
-		origMouseX = 0;
 
 		InvalidationListener propertiesListener = observable -> {
 			computeVertices();
@@ -87,24 +82,6 @@ public class SlickGraph extends Canvas {
 		kernelBandWidthProperty.addListener(e -> {
 			computeConvolution();
 			scaleAndShadeVertices();
-			render();
-		});
-
-		addEventHandler(ScrollEvent.ANY, e -> {
-			if (e.isControlDown()) {
-				setKernelBandWidth(getKernelBandWidth() + getKernelBandWidth() / ((e.getDeltaY() > 0 ? 1 : -1) * 10.));
-			} else {
-				zoom(e.getDeltaY());
-				computeVertices();
-				render();
-			}
-		});
-
-		addEventHandler(MouseEvent.MOUSE_PRESSED, e -> origMouseX = e.getSceneX());
-
-		addEventHandler(MouseEvent.MOUSE_DRAGGED, e -> {
-			pan(e.getSceneX());
-			computeVertices();
 			render();
 		});
 	}
@@ -245,7 +222,7 @@ public class SlickGraph extends Canvas {
 	 *
 	 * @param z Y-delta of the zoom
 	 */
-	protected void zoom(double z) {
+	public void zoom(double z) {
 		double delta = 50. * (end - start) / getWidth();
 		if (z > 0) {
 			start += delta;
@@ -254,18 +231,23 @@ public class SlickGraph extends Canvas {
 			start -= delta;
 			end += delta;
 		}
+
+		computeVertices();
+		render();
 	}
 
 	/**
 	 * Perform a pan
 	 *
-	 * @param x Horizontal coordinate of the mouse cursor
+	 * @param deltaX Horizontal displacement of the mouse cursor
 	 */
-	protected void pan(double x) {
-		double delta = (origMouseX - x) * (end - start) / getWidth();
+	public void pan(double deltaX) {
+		double delta = deltaX * (end - start) / getWidth();
 		start += delta;
 		end += delta;
-		origMouseX = x;
+
+		computeVertices();
+		render();
 	}
 
 	/** Draw the graph */
