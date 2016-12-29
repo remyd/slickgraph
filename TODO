@@ -1,0 +1,7 @@
+- separate binning code
+- exclude interaction -> follow MVC model of JavaFX
+- add support to HiDPI
+- add different statistic kernels
+- add support to visualize different timeseries
+- implement themeriver algorithm
+- add cursor
