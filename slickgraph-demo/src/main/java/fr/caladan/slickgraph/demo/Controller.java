@@ -5,6 +5,9 @@ import java.util.ResourceBundle;
 
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.Slider;
+import javafx.scene.control.ToolBar;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.AnchorPane;
@@ -19,6 +22,18 @@ public class Controller implements Initializable {
 	@FXML
 	private AnchorPane root;
 
+	/** Toolbar containing the widgets */
+	@FXML
+	private ToolBar toolBar;
+
+	/** Slider to control the smoothing strength */
+	@FXML
+	private Slider smoothingSlider;
+
+	/** Check box controlling the shading */
+	@FXML
+	private CheckBox showShadingCheckBox;
+
 	/** Slick Graph widget */
 	private SlickGraph slickGraph;
 
@@ -27,10 +42,20 @@ public class Controller implements Initializable {
 
 	@Override
 	public void initialize(URL location, ResourceBundle resources) {
+		// layout adjustment due to hidpi settings
+		root.heightProperty().addListener(e -> AnchorPane.setTopAnchor(root, toolBar.getHeight()));
+
 		slickGraph = new SlickGraph();
 		slickGraph.widthProperty().bind(root.widthProperty());
 		slickGraph.heightProperty().bind(root.heightProperty());
 		root.getChildren().add(slickGraph);
+
+		// bind the slider value to the kernel bandwidth
+		smoothingSlider.setValue(slickGraph.getKernelBandWidth());
+		slickGraph.kernelBandwidthProperty().bind(smoothingSlider.valueProperty());
+
+		// bind the checkbox value to the shading property
+		slickGraph.showShadingProperty().bind(showShadingCheckBox.selectedProperty());
 
 		origMouseX = 0;
 

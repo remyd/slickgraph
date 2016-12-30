@@ -1,7 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.scene.control.*?>
 <?import java.lang.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.layout.AnchorPane?>
 
-<AnchorPane fx:id="root" prefHeight="200.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="fr.caladan.slickgraph.demo.Controller" />
+
+<AnchorPane prefHeight="282.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="fr.caladan.slickgraph.demo.Controller">
+   <children>
+      <ToolBar fx:id="toolBar" prefHeight="40.0" prefWidth="200.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+         <items>
+            <Label text="Smoothing strength" />
+            <Slider fx:id="smoothingSlider" max="30.0" maxWidth="-Infinity" min="1.0" minWidth="-Infinity" prefWidth="200.0" />
+            <Separator orientation="VERTICAL" />
+            <CheckBox fx:id="showShadingCheckBox" mnemonicParsing="false" selected="true" text="Show shading" />
+         </items>
+      </ToolBar>
+      <AnchorPane fx:id="root" prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="55.0" />
+   </children>
+</AnchorPane>
