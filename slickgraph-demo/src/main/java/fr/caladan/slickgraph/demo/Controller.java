@@ -30,9 +30,13 @@ public class Controller implements Initializable {
 	@FXML
 	private Slider smoothingSlider;
 
-	/** Check box controlling the shading */
+	/** Check box controlling the visibility of the shading */
 	@FXML
 	private CheckBox showShadingCheckBox;
+
+	/** Check box controlling the visibility of the curve */
+	@FXML
+	private CheckBox showCurveCheckBox;
 
 	/** Slick Graph widget */
 	private SlickGraph slickGraph;
@@ -54,8 +58,9 @@ public class Controller implements Initializable {
 		smoothingSlider.setValue(slickGraph.getKernelBandWidth());
 		slickGraph.kernelBandwidthProperty().bind(smoothingSlider.valueProperty());
 
-		// bind the checkbox value to the shading property
+		// bind the different properties to the checkbox values
 		slickGraph.showShadingProperty().bind(showShadingCheckBox.selectedProperty());
+		slickGraph.showCurveProperty().bind(showCurveCheckBox.selectedProperty());
 
 		origMouseX = 0;
 

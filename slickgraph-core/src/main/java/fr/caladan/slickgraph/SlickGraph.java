@@ -113,6 +113,18 @@ public class SlickGraph extends Group {
 		showShadingProperty.set(showShading);
 	}
 
+	/** Indicates whether hide or show the curve of the graph */
+	protected SimpleBooleanProperty showCurveProperty;
+	public SimpleBooleanProperty showCurveProperty() {
+		return showCurveProperty;
+	}
+	public boolean isCurveShown() {
+		return showCurveProperty.get();
+	}
+	public void setShowCurve(boolean showCurve) {
+		showCurveProperty.set(showCurve);
+	}
+
 	/** Public default constructor - initializes the properties */
 	public SlickGraph() {
 		super();
@@ -133,6 +145,7 @@ public class SlickGraph extends Group {
 		timeCursor = new TimeCursor();
 		getChildren().add(timeCursor);
 		showShadingProperty = new SimpleBooleanProperty(true);
+		showCurveProperty = new SimpleBooleanProperty(true);
 
 		dataProperty.addListener(e -> {
 			computeVertices();
@@ -166,6 +179,7 @@ public class SlickGraph extends Group {
 		// bind the properties setting the visualization parameters
 		InvalidationListener propertiesListener = e -> render();
 		showShadingProperty.addListener(propertiesListener);
+		showCurveProperty.addListener(propertiesListener);
 	}
 
 	/**
@@ -375,9 +389,11 @@ public class SlickGraph extends Group {
 		}
 
 		// render the curve
-		gc.setStroke(Color.BLUE);
-		for (int i = 0; i < vertices.size() - 1; i++) {
-			gc.strokeLine(vertices.get(i).x, vertices.get(i).y, vertices.get(i + 1).x, vertices.get(i + 1).y);
+		if (showCurveProperty.get()) {
+			gc.setStroke(Color.BLUE);
+			for (int i = 0; i < vertices.size() - 1; i++) {
+				gc.strokeLine(vertices.get(i).x, vertices.get(i).y, vertices.get(i + 1).x, vertices.get(i + 1).y);
+			}
 		}
 	}
 
