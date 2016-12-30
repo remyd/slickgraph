@@ -59,16 +59,8 @@ public class Controller implements Initializable {
 
 		origMouseX = 0;
 
-		slickGraph.addEventHandler(ScrollEvent.ANY, e -> {
-			// scroll + control updates the smoothing strength (kernel bandwidth used for the convolution step)
-			if (e.isControlDown()) {
-				double bw = slickGraph.getKernelBandWidth();
-				slickGraph.setKernelBandWidth(bw + bw / ((e.getDeltaY() > 0 ? 1 : -1) * 10.));
-			// scroll performs a zoom
-			} else {
-				slickGraph.zoom(e.getDeltaY());
-			}
-		});
+		// zoom in data on scroll
+		slickGraph.addEventHandler(ScrollEvent.ANY, e -> slickGraph.zoom(e.getDeltaY()));
 
 		// save the position of the mouse when pressed
 		slickGraph.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> origMouseX = e.getSceneX());
