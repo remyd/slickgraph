@@ -6,10 +6,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.event.EventHandler;
+import javafx.scene.Group;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.input.InputEvent;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.paint.Color;
 import javafx.stage.Screen;
 
@@ -19,7 +25,16 @@ import javafx.stage.Screen;
  * They nonetheless provide smooth variations by using a convolution with a kernel.
  * The filtered-out information that would be lost by this smoothing step is encoded using the luminance channel.
  */
-public class SlickGraph extends Canvas {
+public class SlickGraph extends Group {
+
+	/** Canvas used to render the timeseries */
+	protected Canvas canvas;
+	public DoubleProperty widthProperty() {
+		return canvas.widthProperty();
+	}
+	public DoubleProperty heightProperty() {
+		return canvas.heightProperty();
+	}
 
 	/** Data to render */
 	protected SimpleObjectProperty<List<Double>> dataProperty;
@@ -55,8 +70,14 @@ public class SlickGraph extends Canvas {
 	/** Histogram computed after aggregation based on the pixels */
 	protected List<Double> histogram;
 
+	/** Histogram values after the convolution */
+	protected List<Double> smoothedHistogram;
+
 	/** Maximum value in the histogram */
 	protected double histogramMax;
+
+	/** Vertices of the histogram */
+	protected List<Vertex> histogramVertices;
 
 	/** Vertices of the graph */
 	protected List<Vertex> vertices;
@@ -73,30 +94,55 @@ public class SlickGraph extends Canvas {
 	/** Height (in physical pixels) of the canvas */
 	protected double scaledHeight;
 
+	/** Time cursor */
+	protected TimeCursor timeCursor;
+
 	/** Public default constructor - initializes the properties */
 	public SlickGraph() {
+		canvas = new Canvas();
+		getChildren().add(canvas);
 		dataProperty = new SimpleObjectProperty<List<Double>>();
 		kernelBandWidthProperty = new SimpleDoubleProperty(5.0);
 		histogram = new ArrayList<Double>();
+		smoothedHistogram = new ArrayList<Double>();
 		start = -1;
 		end = -1;
 		histogramMax = -1;
+		histogramVertices = new ArrayList<Vertex>();
 		vertices = new ArrayList<Vertex>();
 		xScaleProperty = new SimpleDoubleProperty(1.);
 		yScaleProperty = new SimpleDoubleProperty(1.);
+		timeCursor = new TimeCursor();
+		getChildren().add(timeCursor);
 
 		dataProperty.addListener(e -> {
 			computeVertices();
 			render();
 		});
 
-		widthProperty().addListener(e -> handleHiDPI());
-		heightProperty().addListener(e -> handleHiDPI());
+		canvas.widthProperty().addListener(e -> handleHiDPI());
+		canvas.heightProperty().addListener(e -> handleHiDPI());
+		timeCursor.getCursorLine().endYProperty().bind(canvas.heightProperty());
 
 		kernelBandWidthProperty.addListener(e -> {
 			computeVertices();
 			render();
 		});
+
+		// mouse event for the time cursor
+		EventHandler<? super InputEvent> mouseEventHandler = e -> {
+			double x = e instanceof MouseEvent ? ((MouseEvent) e).getX() : ((ScrollEvent) e).getX();
+			if (x < histogram.size()) {
+				timeCursor.setTooltipText(" y = " +
+						smoothedHistogram.get((int) (x * xScaleProperty.get()) +
+						(int) Math.floor(3. * kernelBandWidthProperty.get())) * (end - start) / scaledWidth +
+						" ");
+			}
+			timeCursor.setPosition(x, vertices.get((int) (x * xScaleProperty.get())).y / yScaleProperty.get());
+		};
+		addEventHandler(MouseEvent.MOUSE_MOVED, mouseEventHandler);
+		addEventHandler(MouseEvent.MOUSE_DRAGGED, mouseEventHandler);
+		addEventHandler(ScrollEvent.ANY, mouseEventHandler);
 	}
 
 	/**
@@ -120,16 +166,19 @@ public class SlickGraph extends Canvas {
 		double xScale = nativeWidth / screenWidth;
 		double yScale = nativeHeight / screenHeight;
 
-		scaledWidth = getWidth() * xScale;
-		scaledHeight = getHeight() * yScale;
+		scaledWidth = canvas.getWidth() * xScale;
+		scaledHeight = canvas.getHeight() * yScale;
 
 		// back to scale 1:1
-		getGraphicsContext2D().scale(xScaleProperty.get(), yScaleProperty.get());
-		getGraphicsContext2D().scale(1. / xScale, 1. / yScale);
+		canvas.getGraphicsContext2D().scale(xScaleProperty.get(), yScaleProperty.get());
+
+		// set the new scale
+		canvas.getGraphicsContext2D().scale(1. / xScale, 1. / yScale);
 
 		xScaleProperty.set(xScale);
 		yScaleProperty.set(yScale);
 
+		// update the view
 		computeVertices();
 		render();
 	}
@@ -169,20 +218,9 @@ public class SlickGraph extends Canvas {
 			listIndices.add(boundEvent);
 		}
 
-		// push 3 * kernel bandwidth at each side of the histogram, to be trimmed -> prevent the curve to be distorded at the boundaries of the canvas
-		/* double diffIdx = (listIndices.get(1) - listIndices.get(0)) / (end - start) * scaledWidth;
-		for (int i = 0; i < Math.min(listIndices.size() - 1, (int) Math.floor(3. * kernelBandWidthProperty.get())); i++) {
-			histogram.add((listIndices.get(i + 1) - listIndices.get(i)) / (end - start) * scaledWidth);
-		} */
-
 		for (int i = 0; i < listIndices.size() - 1; i++) {
 			histogram.add((listIndices.get(i + 1) - listIndices.get(i)) / (end - start) * scaledWidth);
 		}
-
-		/* diffIdx = (listIndices.get(listIndices.size() - 1) - listIndices.get(listIndices.size() - 2)) / (end - start) * scaledWidth;
-		for (int i = listIndices.size() - (int) Math.floor(3. * kernelBandWidthProperty.get()) - 1; i < listIndices.size() - 1; i++) {
-			histogram.add((listIndices.get(listIndices.size() - i + 1) - listIndices.get(listIndices.size() - i)) / (end - start) * scaledWidth);
-		} */
 
 		histogramMax = histogramMax == -1 ? Collections.max(histogram) : histogramMax;
 	}
@@ -209,10 +247,8 @@ public class SlickGraph extends Canvas {
 	/** Convolve the histogram with a statistic kernel */
 	protected void computeConvolution() {
 		// clear the vertices list if not empty and initialize all the vertices
-		vertices.clear();
-		for (int i = 0; i < histogram.size(); i++) { // scaledWidth + 1 + (int) Math.floor(6. * kernelBandWidthProperty.get()); i++) {
-			vertices.add(new Vertex(i, 0., Color.BLACK));
-		}
+		smoothedHistogram.clear();
+		histogram.forEach(i -> smoothedHistogram.add(0.));
 
 		// compute the convolution of the time serie width the kernel
 		List<Double> gaussianValues = gaussianKernel();
@@ -222,28 +258,39 @@ public class SlickGraph extends Canvas {
 				if (j < 0 || j > histogram.size() - 1) {
 					continue;
 				}
-				vertices.get(i).y += histogram.get(j) * gaussianValues.get(k);
+				smoothedHistogram.set(i, smoothedHistogram.get(i) + histogram.get(j) * gaussianValues.get(k));
 			}
 		}
 	}
 
 	/** Apply a scaling factor on the vertical coordinate of the vertices to ensure a correct window fitting and compute the Slick Graph shading */
 	protected void scaleAndShadeVertices() {
-			double max = vertices.stream()
-				.mapToDouble(v -> v.y)
+		/* for (int i = 0; i < histogram.size(); i++) {
+			vertices.add(new Vertex(i, 0., Color.BLACK));
+		} */
+
+		double max = smoothedHistogram.stream()
+				.mapToDouble(i -> i)
 				.summaryStatistics()
 				.getMax();
-
 		double scalingFactor = 1.2 / (max / histogramMax);
-		vertices.forEach(v -> v.y *= scalingFactor);
+
+		vertices.clear();
+		for (int i = 0; i < smoothedHistogram.size(); i++) {
+			double alpha = histogram.get(i) == 0 ? 0. : 1. / (1. + smoothedHistogram.get(i) / histogram.get(i));
+			vertices.add(new Vertex(i,
+					(1. - (smoothedHistogram.get(i) * scalingFactor) / (max * scalingFactor) * .8) * scaledHeight,
+					Color.rgb(0, 0, 0, alpha))
+			);
+		}
 
 		// compute the color associated to each vertex that encode the difference between the real value and the smoothed value
 		IntStream.range(0, histogram.size()).parallel().forEach(i -> {
-			Vertex vertex = vertices.get(i);
-			double alpha = histogram.get(i) == 0 ? 0 : 1. / (1 + vertex.y / histogram.get(i));
+			// Vertex vertex = vertices.get(i);
+			// double alpha = histogram.get(i) == 0 ? 0 : 1. / (1 + vertex.y / histogram.get(i));
 
-			vertex.color = Color.rgb(0, 0, 0, alpha);
-			vertex.y = (1. - vertex.y / (max * scalingFactor) * .8) * scaledHeight;
+			// vertex.color = Color.rgb(0, 0, 0, alpha);
+			// vertex.y = (1. - vertex.y / (max * scalingFactor) * .8) * scaledHeight;
 		});
 
 		// update the coordinate of the last vertex
@@ -259,7 +306,7 @@ public class SlickGraph extends Canvas {
 	/** Compute the vertices of the graph */
 	protected void computeVertices() {
 		// nothing to do if not shown yet or not data
-		if (getWidth() == 0. || getHeight() == 0. || dataProperty.get() == null) {
+		if (canvas.getWidth() == 0. || canvas.getHeight() == 0. || dataProperty.get() == null) {
 			return;
 		}
 
@@ -303,7 +350,7 @@ public class SlickGraph extends Canvas {
 
 	/** Draw the graph */
 	protected void render() {
-		GraphicsContext gc = getGraphicsContext2D();
+		GraphicsContext gc = canvas.getGraphicsContext2D();
 
 		// clear the canvas
 		gc.setFill(Color.WHITE);

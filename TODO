@@ -2,4 +2,6 @@
 - add different statistic kernels
 - add support to visualize different timeseries
 - implement themeriver algorithm
-- add cursor
+- add hide/show shading
+- add hide/show curve
+- add hide/show histogram
