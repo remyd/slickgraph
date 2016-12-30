@@ -4,9 +4,10 @@ import java.awt.Toolkit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.IntStream;
 
+import javafx.beans.InvalidationListener;
 import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.event.EventHandler;
@@ -97,8 +98,22 @@ public class SlickGraph extends Group {
 	/** Time cursor */
 	protected TimeCursor timeCursor;
 
+	/** Indicates whether hide or show the shading representing the difference between the smoothed and the real value */
+	protected SimpleBooleanProperty showShadingProperty;
+	public SimpleBooleanProperty showShadingProperty() {
+		return showShadingProperty;
+	}
+	public boolean isShadingShown() {
+		return showShadingProperty.get();
+	}
+	public void setShowShading(boolean showShading) {
+		showShadingProperty.set(showShading);
+	}
+
 	/** Public default constructor - initializes the properties */
 	public SlickGraph() {
+		super();
+
 		canvas = new Canvas();
 		getChildren().add(canvas);
 		dataProperty = new SimpleObjectProperty<List<Double>>();
@@ -114,6 +129,7 @@ public class SlickGraph extends Group {
 		yScaleProperty = new SimpleDoubleProperty(1.);
 		timeCursor = new TimeCursor();
 		getChildren().add(timeCursor);
+		showShadingProperty = new SimpleBooleanProperty(true);
 
 		dataProperty.addListener(e -> {
 			computeVertices();
@@ -143,6 +159,10 @@ public class SlickGraph extends Group {
 		addEventHandler(MouseEvent.MOUSE_MOVED, mouseEventHandler);
 		addEventHandler(MouseEvent.MOUSE_DRAGGED, mouseEventHandler);
 		addEventHandler(ScrollEvent.ANY, mouseEventHandler);
+
+		// bind the properties setting the visualization parameters
+		InvalidationListener propertiesListener = e -> render();
+		showShadingProperty.addListener(propertiesListener);
 	}
 
 	/**
@@ -265,10 +285,6 @@ public class SlickGraph extends Group {
 
 	/** Apply a scaling factor on the vertical coordinate of the vertices to ensure a correct window fitting and compute the Slick Graph shading */
 	protected void scaleAndShadeVertices() {
-		/* for (int i = 0; i < histogram.size(); i++) {
-			vertices.add(new Vertex(i, 0., Color.BLACK));
-		} */
-
 		double max = smoothedHistogram.stream()
 				.mapToDouble(i -> i)
 				.summaryStatistics()
@@ -283,15 +299,6 @@ public class SlickGraph extends Group {
 					Color.rgb(0, 0, 0, alpha))
 			);
 		}
-
-		// compute the color associated to each vertex that encode the difference between the real value and the smoothed value
-		IntStream.range(0, histogram.size()).parallel().forEach(i -> {
-			// Vertex vertex = vertices.get(i);
-			// double alpha = histogram.get(i) == 0 ? 0 : 1. / (1 + vertex.y / histogram.get(i));
-
-			// vertex.color = Color.rgb(0, 0, 0, alpha);
-			// vertex.y = (1. - vertex.y / (max * scalingFactor) * .8) * scaledHeight;
-		});
 
 		// update the coordinate of the last vertex
 		Vertex lastVertex = vertices.get(vertices.size() - 1);
@@ -357,10 +364,12 @@ public class SlickGraph extends Group {
 		gc.fillRect(0, 0, scaledWidth, scaledHeight);
 
 		// render the shading
-		vertices.forEach(v -> {
-			gc.setStroke(v.color);
-			gc.strokeLine(v.x, scaledHeight, v.x, v.y);
-		});
+		if (showShadingProperty.get()) {
+			vertices.forEach(v -> {
+				gc.setStroke(v.color);
+				gc.strokeLine(v.x, scaledHeight, v.x, v.y);
+			});
+		}
 
 		// render the curve
 		gc.setStroke(Color.BLUE);
