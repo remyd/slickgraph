@@ -55,6 +55,9 @@ public class SlickGraph extends Group {
 
 	/** Bandwidth to use when computing the kernel estimation */
 	protected SimpleDoubleProperty kernelBandWidthProperty;
+	public SimpleDoubleProperty kernelBandwidthProperty() {
+		return kernelBandWidthProperty;
+	}
 	public void setKernelBandWidth(double kernelBandWidth) {
 		kernelBandWidthProperty.set(Math.max(1., kernelBandWidth));
 	}
