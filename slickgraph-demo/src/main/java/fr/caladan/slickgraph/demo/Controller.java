@@ -82,7 +82,12 @@ public class Controller implements Initializable {
 		});
 
 		// feed the graph
-		slickGraph.setData(DataGenerator.generateTimeseries(10000));
+		try {
+			slickGraph.setData(DataGenerator.generateTimeseries(10000));
+		} catch (Exception e) {
+			System.err.println(e.getMessage());
+			System.exit(-1);
+		}
 	}
 
 }

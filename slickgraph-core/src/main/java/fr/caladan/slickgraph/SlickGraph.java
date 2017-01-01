@@ -42,7 +42,18 @@ public class SlickGraph extends Group {
 	public List<Double> getData() {
 		return dataProperty.get();
 	}
-	public void setData(List<Double> data) {
+	public void setData(List<Double> data) throws Exception {
+		// check if the timeseries is valid: timestamps are strictly growing
+		int i = 0;
+		boolean isValid = true;
+		while (i < data.size() - 1 && isValid) {
+			isValid = data.get(i) < data.get(i + 1);
+			i++;
+		}
+		if (!isValid) {
+			throw new Exception("Timeseries is not valid: timestamps should be strictly increasing");
+		}
+
 		dataProperty.set(data);
 		if (!data.isEmpty()) {
 			start = data.get(0);
@@ -215,8 +226,9 @@ public class SlickGraph extends Group {
 	 * Constructor that initializes the data
 	 *
 	 * @param data Data that represent the time serie to render
+	 * @throws Exception If the data is not valid (timestamps should be strictly increasing)
 	 */
-	public SlickGraph(List<Double> data) {
+	public SlickGraph(List<Double> data) throws Exception {
 		this();
 
 		setData(data);
@@ -256,7 +268,7 @@ public class SlickGraph extends Group {
 	 * @param end End timestamp of the time window
 	 * @return
 	 */
-	private double[] buildPixelBounds(double start, double end) {
+	protected double[] buildPixelBounds(double start, double end) {
 		int toTrim = (int) Math.floor(6. * kernelBandWidthProperty.get());
 		double timeSliceDuration = (end - start) / (scaledWidth + toTrim);
 		double[] pixelBounds = new double[(int) (scaledWidth + 1 + toTrim)];
