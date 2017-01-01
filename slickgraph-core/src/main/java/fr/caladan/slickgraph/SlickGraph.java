@@ -223,7 +223,20 @@ public class SlickGraph extends Group {
 	}
 
 	/**
-	 * Constructor that initializes the data
+	 * Constructor that initializes the size of the graph
+	 *
+	 * @param width Width of the graph
+	 * @param height Height of the graph
+	 */
+	public SlickGraph(double width, double height) {
+		this();
+
+		canvas.setWidth(width);
+		canvas.setHeight(height);
+	}
+
+	/**
+	 * Constructor that initializes the data to visualize
 	 *
 	 * @param data Data that represent the time serie to render
 	 * @throws Exception If the data is not valid (timestamps should be strictly increasing)
@@ -232,6 +245,21 @@ public class SlickGraph extends Group {
 		this();
 
 		setData(data);
+	}
+
+	/**
+	 * Constructor that initializes the size of the graph and the data to visualize
+	 *
+	 * @param width Width of the graph
+	 * @param height Height of the graph
+	 * @param data Data that represent the time serie to render
+	 * @throws Exception If the data is not valid (timestamps should be strictly increasing)
+	 */
+	public SlickGraph(double width, double height, List<Double> data) throws Exception {
+		this(data);
+
+		canvas.setWidth(width);
+		canvas.setHeight(height);
 	}
 
 	/** Set the scale on the canvas to have a 1:1 pixel mapping */
