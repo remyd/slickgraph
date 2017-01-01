@@ -101,6 +101,18 @@ public class SlickGraph extends Group {
 	/** Time cursor */
 	protected TimeCursor timeCursor;
 
+	/** Time cursor visibility property */
+	protected SimpleBooleanProperty timeCursorVisibleProperty;
+	public SimpleBooleanProperty timeCursorVisibleProperty() {
+		return timeCursorVisibleProperty;
+	}
+	public boolean isTimeCursorVisible() {
+		return timeCursorVisibleProperty.get();
+	}
+	public void setTimeCursorVisible(boolean visible) {
+		timeCursorVisibleProperty.set(visible);
+	}
+
 	/** Indicates whether hide or show the shading representing the difference between the smoothed and the real value */
 	protected SimpleBooleanProperty showShadingProperty;
 	public SimpleBooleanProperty showShadingProperty() {
@@ -156,6 +168,7 @@ public class SlickGraph extends Group {
 		yScaleProperty = new SimpleDoubleProperty(1.);
 		timeCursor = new TimeCursor();
 		getChildren().add(timeCursor);
+		timeCursorVisibleProperty = new SimpleBooleanProperty(true);
 		showShadingProperty = new SimpleBooleanProperty(true);
 		showCurveProperty = new SimpleBooleanProperty(true);
 		curveColorProperty = new SimpleObjectProperty<Color>(Color.rgb(0, 145, 255));
@@ -188,6 +201,8 @@ public class SlickGraph extends Group {
 		addEventHandler(MouseEvent.MOUSE_MOVED, mouseEventHandler);
 		addEventHandler(MouseEvent.MOUSE_DRAGGED, mouseEventHandler);
 		addEventHandler(ScrollEvent.ANY, mouseEventHandler);
+
+		timeCursor.visibleProperty().bind(timeCursorVisibleProperty);
 
 		// bind the properties setting the visualization parameters
 		InvalidationListener propertiesListener = e -> render();

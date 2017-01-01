@@ -38,6 +38,10 @@ public class Controller implements Initializable {
 	@FXML
 	private CheckBox showCurveCheckBox;
 
+	/** Check box controlling the visibility of the time cursor */
+	@FXML
+	private CheckBox showTimeCursorCheckBox;
+
 	/** Slick Graph widget */
 	private SlickGraph slickGraph;
 
@@ -61,6 +65,7 @@ public class Controller implements Initializable {
 		// bind the different properties to the checkbox values
 		slickGraph.showShadingProperty().bind(showShadingCheckBox.selectedProperty());
 		slickGraph.showCurveProperty().bind(showCurveCheckBox.selectedProperty());
+		slickGraph.timeCursorVisibleProperty().bind(showTimeCursorCheckBox.selectedProperty());
 
 		origMouseX = 0;
 
