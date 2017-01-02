@@ -14,6 +14,7 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.event.EventHandler;
 import javafx.scene.Group;
@@ -170,10 +171,11 @@ public class SlickGraph extends Group {
 		showCurveProperty = new SimpleBooleanProperty(true);
 		curveColorProperty = new SimpleObjectProperty<Color>(Color.rgb(0, 145, 255));
 
-		/* dataProperty.addListener(e -> {
+		// render the graph when a timeseries is added or removed
+		timeseries.addListener((ListChangeListener.Change<? extends Timeseries> c) -> {
 			computeVertices();
 			render();
-		}); */
+		});
 
 		canvas.widthProperty().addListener(e -> handleHiDPI());
 		canvas.heightProperty().addListener(e -> handleHiDPI());
@@ -193,11 +195,6 @@ public class SlickGraph extends Group {
 						.mapToDouble(h -> h.get((int) (x * xScaleProperty.get()) + (int) Math.floor(3. * kernelBandWidthProperty.get())) * (end - start) / scaledWidth)
 						.sum();
 				timeCursor.setTooltipText("y = " + value + " ");
-
-				/* timeCursor.setTooltipText(" y = " +
-						smoothedHistogram.get((int) (x * xScaleProperty.get()) +
-						(int) Math.floor(3. * kernelBandWidthProperty.get())) * (end - start) / scaledWidth +
-						" "); */
 			}
 			timeCursor.setPosition(x, mapVertices.get(timeseries.get(timeseries.size() - 1)).get((int) Math.round(x * 2. * xScaleProperty.get()) / 2 * 2).y / yScaleProperty.get());
 		};
@@ -236,7 +233,9 @@ public class SlickGraph extends Group {
 	public SlickGraph(List<Double> data) throws Exception {
 		this();
 
-		// setData(data);
+		List<Timeseries> timeseries = new ArrayList<Timeseries>();
+		timeseries.add(new Timeseries(data));
+		setTimeseries(timeseries);
 	}
 
 	/**
@@ -306,7 +305,6 @@ public class SlickGraph extends Group {
 	 * @param timeseries Timeseries to aggregate
 	 */
 	protected void buildHistogram(Timeseries timeseries) {
-		// histogram.clear();
 		List<Double> histogram = new ArrayList<Double>();
 
 		// build the timestamps at the pixels bounds

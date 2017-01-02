@@ -88,8 +88,15 @@ public class Controller implements Initializable {
 		List<Timeseries> timeseries = new ArrayList<Timeseries>();
 		timeseries.add(new Timeseries("my timeseries 1", Color.RED, DataGenerator.generateTimeseries(1000)));
 		timeseries.add(new Timeseries("my timeseries 2", Color.GREEN, DataGenerator.generateTimeseries(1000)));
-		timeseries.add(new Timeseries("my timeseries 3", Color.BLUE, DataGenerator.generateTimeseries(1000)));
-		timeseries.add(new Timeseries("my timeseries 3", Color.ORANGE, DataGenerator.generateTimeseries(1000)));
+		Thread t = new Thread(() -> {
+			try {
+				Thread.sleep(2000);
+			} catch (Exception e1) {}
+			slickGraph.getTimeseries().add(new Timeseries("my timeseries 3", Color.BLUE, DataGenerator.generateTimeseries(1000)));
+		});
+		t.setDaemon(true);
+		t.start();
+		timeseries.add(new Timeseries("my timeseries 4", Color.ORANGE, DataGenerator.generateTimeseries(1000)));
 		slickGraph.setTimeseries(timeseries);
 
 		// feed the graph
