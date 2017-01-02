@@ -1,6 +1,8 @@
 package fr.caladan.slickgraph.demo;
 
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.ResourceBundle;
 
 import javafx.fxml.FXML;
@@ -11,7 +13,9 @@ import javafx.scene.control.ToolBar;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.paint.Color;
 import fr.caladan.slickgraph.SlickGraph;
+import fr.caladan.slickgraph.Timeseries;
 
 /**
  * Controller showing how to bind the slick graph component events
@@ -81,13 +85,20 @@ public class Controller implements Initializable {
 			origMouseX = e.getSceneX();
 		});
 
+		List<Timeseries> timeseries = new ArrayList<Timeseries>();
+		timeseries.add(new Timeseries("my timeseries 1", Color.RED, DataGenerator.generateTimeseries(1000)));
+		timeseries.add(new Timeseries("my timeseries 2", Color.GREEN, DataGenerator.generateTimeseries(1000)));
+		timeseries.add(new Timeseries("my timeseries 3", Color.BLUE, DataGenerator.generateTimeseries(1000)));
+		timeseries.add(new Timeseries("my timeseries 3", Color.ORANGE, DataGenerator.generateTimeseries(1000)));
+		slickGraph.setTimeseries(timeseries);
+
 		// feed the graph
-		try {
+		/* try {
 			slickGraph.setData(DataGenerator.generateTimeseries(10000));
 		} catch (Exception e) {
 			System.err.println(e.getMessage());
 			System.exit(-1);
-		}
+		} */
 	}
 
 }

@@ -3,13 +3,18 @@ package fr.caladan.slickgraph;
 import java.awt.Toolkit;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.IntStream;
 
 import javafx.beans.InvalidationListener;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.event.EventHandler;
 import javafx.scene.Group;
 import javafx.scene.canvas.Canvas;
@@ -37,31 +42,16 @@ public class SlickGraph extends Group {
 		return canvas.heightProperty();
 	}
 
-	/** Data to render */
-	protected SimpleObjectProperty<List<Double>> dataProperty;
-	public List<Double> getData() {
-		return dataProperty.get();
+	/** Timeseries to render */
+	protected ObservableList<Timeseries> timeseries;
+	public List<Timeseries> getTimeseries() {
+		return timeseries;
 	}
-	public void setData(List<Double> data) throws Exception {
-		// check if the timeseries is valid: timestamps are strictly growing
-		int i = 0;
-		boolean isValid = true;
-		while (i < data.size() - 1 && isValid) {
-			isValid = data.get(i) < data.get(i + 1);
-			i++;
-		}
-		if (!isValid) {
-			throw new Exception("Timeseries is not valid: timestamps should be strictly increasing");
-		}
-
-		dataProperty.set(data);
-		if (!data.isEmpty()) {
-			start = data.get(0);
-			end = data.get(data.size() - 1);
-		} else {
-			start = -1;
-			end = -1;
-		}
+	public void setTimeseries(List<Timeseries> timeseries) {
+		start = timeseries.get(0).getData().get(0);
+		end = timeseries.get(0).getData().get(timeseries.get(0).getData().size() - 1);
+		this.timeseries.clear();
+		this.timeseries.addAll(timeseries);
 	}
 
 	/** Bandwidth to use when computing the kernel estimation */
@@ -83,19 +73,16 @@ public class SlickGraph extends Group {
 	protected double end;
 
 	/** Histogram computed after aggregation based on the pixels */
-	protected List<Double> histogram;
+	protected Map<Timeseries, List<Double>> mapHistograms;
 
 	/** Histogram values after the convolution */
-	protected List<Double> smoothedHistogram;
-
-	/** Maximum value in the histogram */
-	protected double histogramMax;
+	protected Map<Timeseries, List<Double>> mapSmoothedHistogram;
 
 	/** Vertices of the histogram */
 	protected List<Vertex> histogramVertices;
 
 	/** Vertices of the graph */
-	protected List<Vertex> vertices;
+	protected Map<Timeseries, List<Vertex>> mapVertices;
 
 	/** Horizontal scale factor */
 	protected SimpleDoubleProperty xScaleProperty;
@@ -166,15 +153,14 @@ public class SlickGraph extends Group {
 
 		canvas = new Canvas();
 		getChildren().add(canvas);
-		dataProperty = new SimpleObjectProperty<List<Double>>();
+		timeseries = FXCollections.observableArrayList();
 		kernelBandWidthProperty = new SimpleDoubleProperty(5.0);
-		histogram = new ArrayList<Double>();
-		smoothedHistogram = new ArrayList<Double>();
+		mapHistograms = new HashMap<Timeseries, List<Double>>();
+		mapSmoothedHistogram = new HashMap<Timeseries, List<Double>>();
 		start = -1;
 		end = -1;
-		histogramMax = -1;
 		histogramVertices = new ArrayList<Vertex>();
-		vertices = new ArrayList<Vertex>();
+		mapVertices = new HashMap<Timeseries, List<Vertex>>();
 		xScaleProperty = new SimpleDoubleProperty(1.);
 		yScaleProperty = new SimpleDoubleProperty(1.);
 		timeCursor = new TimeCursor();
@@ -184,10 +170,10 @@ public class SlickGraph extends Group {
 		showCurveProperty = new SimpleBooleanProperty(true);
 		curveColorProperty = new SimpleObjectProperty<Color>(Color.rgb(0, 145, 255));
 
-		dataProperty.addListener(e -> {
+		/* dataProperty.addListener(e -> {
 			computeVertices();
 			render();
-		});
+		}); */
 
 		canvas.widthProperty().addListener(e -> handleHiDPI());
 		canvas.heightProperty().addListener(e -> handleHiDPI());
@@ -201,13 +187,19 @@ public class SlickGraph extends Group {
 		// mouse event for the time cursor
 		EventHandler<? super InputEvent> mouseEventHandler = e -> {
 			double x = e instanceof MouseEvent ? ((MouseEvent) e).getX() : ((ScrollEvent) e).getX();
-			if (x < histogram.size()) {
-				timeCursor.setTooltipText(" y = " +
+			int histogramSize = mapHistograms.get(timeseries.get(0)).size();
+			if (x < histogramSize) {
+				double value = mapSmoothedHistogram.values().stream()
+						.mapToDouble(h -> h.get((int) (x * xScaleProperty.get()) + (int) Math.floor(3. * kernelBandWidthProperty.get())) * (end - start) / scaledWidth)
+						.sum();
+				timeCursor.setTooltipText("y = " + value + " ");
+
+				/* timeCursor.setTooltipText(" y = " +
 						smoothedHistogram.get((int) (x * xScaleProperty.get()) +
 						(int) Math.floor(3. * kernelBandWidthProperty.get())) * (end - start) / scaledWidth +
-						" ");
+						" "); */
 			}
-			timeCursor.setPosition(x, vertices.get((int) (x * xScaleProperty.get())).y / yScaleProperty.get());
+			timeCursor.setPosition(x, mapVertices.get(timeseries.get(timeseries.size() - 1)).get((int) Math.round(x * 2. * xScaleProperty.get()) / 2 * 2).y / yScaleProperty.get());
 		};
 		addEventHandler(MouseEvent.MOUSE_MOVED, mouseEventHandler);
 		addEventHandler(MouseEvent.MOUSE_DRAGGED, mouseEventHandler);
@@ -244,7 +236,7 @@ public class SlickGraph extends Group {
 	public SlickGraph(List<Double> data) throws Exception {
 		this();
 
-		setData(data);
+		// setData(data);
 	}
 
 	/**
@@ -308,18 +300,22 @@ public class SlickGraph extends Group {
 		return pixelBounds;
 	}
 
-	/** Compute the aggregation of the timeseries based on the pixels */
-	protected void buildHistogram() {
-		histogram.clear();
+	/**
+	 * Compute the aggregation of a timeseries based on the pixels
+	 *
+	 * @param timeseries Timeseries to aggregate
+	 */
+	protected void buildHistogram(Timeseries timeseries) {
+		// histogram.clear();
+		List<Double> histogram = new ArrayList<Double>();
 
 		// build the timestamps at the pixels bounds
 		double[] pixelBounds = buildPixelBounds(start, end);
 
 		// build the list of indices that correspond to the pixel bounds
 		List<Integer> listIndices = new ArrayList<Integer>();
-		List<Double> data = dataProperty.get();
 		for (int i = 0; i < pixelBounds.length; i++) {
-			int boundEvent = Collections.binarySearch(data, pixelBounds[i]);
+			int boundEvent = Collections.binarySearch(timeseries.getData(), pixelBounds[i]);
 			boundEvent = boundEvent >= 0 ? boundEvent : -boundEvent - 1;
 			listIndices.add(boundEvent);
 		}
@@ -328,7 +324,8 @@ public class SlickGraph extends Group {
 			histogram.add((listIndices.get(i + 1) - listIndices.get(i)) / (end - start) * scaledWidth);
 		}
 
-		histogramMax = histogramMax == -1 ? Collections.max(histogram) : histogramMax;
+		mapHistograms.put(timeseries, histogram);
+
 	}
 
 	/**
@@ -350,10 +347,14 @@ public class SlickGraph extends Group {
 		return gaussianValues;
 	}
 
-	/** Convolve the histogram with a statistic kernel */
-	protected void computeConvolution() {
-		// clear the vertices list if not empty and initialize all the vertices
-		smoothedHistogram.clear();
+	/**
+	 * Convolve the histogram with a statistic kernel for a given timeseries
+	 *
+	 * @param timeseries Timeseries whose histogram is to convolve
+	 */
+	protected void computeConvolution(Timeseries timeseries) {
+		List<Double> histogram = mapHistograms.get(timeseries);
+		List<Double> smoothedHistogram = new ArrayList<Double>();
 		histogram.forEach(i -> smoothedHistogram.add(0.));
 
 		// compute the convolution of the time serie width the kernel
@@ -367,45 +368,66 @@ public class SlickGraph extends Group {
 				smoothedHistogram.set(i, smoothedHistogram.get(i) + histogram.get(j) * gaussianValues.get(k));
 			}
 		}
+
+		mapSmoothedHistogram.put(timeseries, smoothedHistogram);
 	}
 
-	/** Apply a scaling factor on the vertical coordinate of the vertices to ensure a correct window fitting and compute the Slick Graph shading */
-	protected void scaleAndShadeVertices() {
-		double max = smoothedHistogram.stream()
-				.mapToDouble(i -> i)
-				.summaryStatistics()
-				.getMax();
-		double scalingFactor = 1.2 / (max / histogramMax);
+	/** Compute the vertices for the layered rendering */
+	protected void computeStackedVertices() {
+		mapVertices.clear();
 
-		vertices.clear();
+		double max = IntStream.range(0, mapSmoothedHistogram.get(timeseries.get(0)).size())
+		 		.mapToDouble(i -> mapSmoothedHistogram.values().stream().mapToDouble(h -> h.get(i)).sum())
+		 		.summaryStatistics()
+		 		.getMax();
+
+		// put the first timeseries at the bottom
+		Timeseries ts = timeseries.get(0);
+		List<Double> smoothedHistogram = mapSmoothedHistogram.get(ts);
+		List<Vertex> vertices = new ArrayList<Vertex>();
 		for (int i = 0; i < smoothedHistogram.size(); i++) {
-			double alpha = histogram.get(i) == 0 ? 0. : 1. / (1. + smoothedHistogram.get(i) / histogram.get(i));
-			vertices.add(new Vertex(i,
-					(1. - (smoothedHistogram.get(i) * scalingFactor) / (max * scalingFactor) * .8) * scaledHeight,
-					Color.rgb(0, 0, 0, alpha))
-			);
+			vertices.add(new Vertex(i, (1. - smoothedHistogram.get(i) / max * .8) * scaledHeight, ts.getColor()));
+			vertices.add(new Vertex(i, scaledHeight));
 		}
+		mapVertices.put(ts, vertices);
 
-		// update the coordinate of the last vertex
-		Vertex lastVertex = vertices.get(vertices.size() - 1);
-		lastVertex.y = scaledHeight - lastVertex.y / max * scaledHeight * .8;
+		// stack the other timeseries
+		for (int i = 1; i < timeseries.size(); i++) {
+			ts = timeseries.get(i);
+			smoothedHistogram = mapSmoothedHistogram.get(ts);
+			vertices = new ArrayList<Vertex>();
+			List<Vertex> aboveVertices = mapVertices.get(timeseries.get(i - 1));
+			for (int j = 0; j < smoothedHistogram.size(); j++) {
+				vertices.add(new Vertex(aboveVertices.get(2 * j).x, aboveVertices.get(2 * j).y - smoothedHistogram.get(j) / max * .8 * scaledHeight, ts.getColor()));
+				vertices.add(new Vertex(aboveVertices.get(2 * j).x, aboveVertices.get(2 * j).y, ts.getColor()));
+			}
+
+			mapVertices.put(ts, vertices);
+		}
 
 		// trim 3 times the kernel bandwidth at each side
 		int toTrim = (int) Math.floor(3. * kernelBandWidthProperty.get());
-		vertices = vertices.subList(toTrim, vertices.size() - toTrim);
-		vertices.forEach(v -> v.x -= toTrim);
+		mapVertices.forEach((t, vt) -> {
+			vt = vt.subList(toTrim * 2, vt.size() - toTrim * 2);
+			vt.forEach(v -> v.x -= toTrim);
+			mapVertices.put(t, vt);
+		});
 	}
 
 	/** Compute the vertices of the graph */
 	protected void computeVertices() {
 		// nothing to do if not shown yet or not data
-		if (canvas.getWidth() == 0. || canvas.getHeight() == 0. || dataProperty.get() == null) {
+		if (canvas.getWidth() == 0. || canvas.getHeight() == 0. || timeseries.isEmpty()) {
 			return;
 		}
 
-		buildHistogram();
-		computeConvolution();
-		scaleAndShadeVertices();
+		// aggregate the timeseries
+		timeseries.parallelStream().forEach(ts -> {
+			buildHistogram(ts);
+			computeConvolution(ts);
+		});
+
+		computeStackedVertices();
 	}
 
 	/**
@@ -443,6 +465,18 @@ public class SlickGraph extends Group {
 
 	/** Draw the graph */
 	protected void render() {
+		// sanity check
+		boolean verticesReady = true;
+		int i = 0;
+		while (i < timeseries.size() && verticesReady) {
+			verticesReady = verticesReady && mapVertices.containsKey(timeseries.get(i));
+			i++;
+		}
+
+		if (timeseries == null || timeseries.isEmpty() || !verticesReady) {
+			return;
+		}
+
 		GraphicsContext gc = canvas.getGraphicsContext2D();
 
 		// clear the canvas
@@ -450,20 +484,37 @@ public class SlickGraph extends Group {
 		gc.fillRect(0, 0, scaledWidth, scaledHeight);
 
 		// render the shading
-		if (showShadingProperty.get()) {
+		/* if (showShadingProperty.get()) {
+			List<Vertex> vertices = mapVertices.get(timeseries.get(2));
 			vertices.forEach(v -> {
 				gc.setStroke(v.color);
 				gc.strokeLine(v.x, scaledHeight, v.x, v.y);
 			});
-		}
+		} */
+
+		timeseries.forEach(ts -> {
+			List<Vertex> vertices = mapVertices.get(ts);
+			gc.setStroke(ts.getColor());
+			for (int v = 0; v < vertices.size() - 1; v += 2) {
+				gc.strokeLine(vertices.get(v).x, vertices.get(v).y, vertices.get(v + 1).x, vertices.get(v + 1).y);
+			}
+		});
+
+		/* mapVertices.forEach((timeseries, vertices) -> {
+			vertices.forEach(v -> {
+				// System.out.println(v);
+				gc.setStroke(v.color);
+				gc.strokeLine(v.x, scaledHeight, v.x, v.y);
+			});
+		}); */
 
 		// render the curve
-		if (showCurveProperty.get()) {
+		/* if (showCurveProperty.get()) {
 			gc.setStroke(curveColorProperty.get());
 			for (int i = 0; i < vertices.size() - 1; i++) {
 				gc.strokeLine(vertices.get(i).x, vertices.get(i).y, vertices.get(i + 1).x, vertices.get(i + 1).y);
 			}
-		}
+		} */
 	}
 
 }

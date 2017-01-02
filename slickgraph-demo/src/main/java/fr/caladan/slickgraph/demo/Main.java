@@ -15,12 +15,12 @@ public class Main extends Application {
 
 	@Override
 	public void start(Stage primaryStage) {
-		Parent root;
+		Parent root = null;
 		try {
 			root = (Parent) new FXMLLoader(getClass().getResource("/fr/caladan/slickgraph/demo/Main.fxml")).load();
 		} catch (IOException e) {
 			System.err.println("Could not launch the demo");
-			return;
+			System.exit(-1);
 		}
 
 		Scene scene = new Scene(root);
