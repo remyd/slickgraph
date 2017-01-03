@@ -127,6 +127,18 @@ public class SlickGraph extends Group {
 	/** List of alpha values for the SlickGraph shading */
 	protected List<Double> slgAlphas;
 
+	/** Background color */
+	protected SimpleObjectProperty<Color> backgroundColorProperty;
+	public SimpleObjectProperty<Color> backgroundColorProperty() {
+		return backgroundColorProperty;
+	}
+	public Color getBackgroundColor() {
+		return backgroundColorProperty.get();
+	}
+	public void setBackgroundColor(Color backgroundColor) {
+		backgroundColorProperty.set(backgroundColor);
+	}
+
 	/** Color of the timeseries outine */
 	protected SimpleObjectProperty<Color> curveColorProperty;
 	public SimpleObjectProperty<Color> curveColorProperty() {
@@ -172,6 +184,7 @@ public class SlickGraph extends Group {
 		timeCursorVisibleProperty = new SimpleBooleanProperty(true);
 		showShadingProperty = new SimpleBooleanProperty(true);
 		slgAlphas = new ArrayList<Double>();
+		backgroundColorProperty = new SimpleObjectProperty<Color>(Color.WHITE);
 		showCurveProperty = new SimpleBooleanProperty(true);
 		curveColorProperty = new SimpleObjectProperty<Color>(Color.BLACK);
 
@@ -214,6 +227,7 @@ public class SlickGraph extends Group {
 		InvalidationListener propertiesListener = e -> render();
 		showShadingProperty.addListener(propertiesListener);
 		showCurveProperty.addListener(propertiesListener);
+		backgroundColorProperty.addListener(propertiesListener);
 		curveColorProperty.addListener(propertiesListener);
 	}
 
@@ -506,7 +520,7 @@ public class SlickGraph extends Group {
 		GraphicsContext gc = canvas.getGraphicsContext2D();
 
 		// clear the canvas
-		gc.setFill(Color.WHITE);
+		gc.setFill(backgroundColorProperty.get());
 		gc.fillRect(0, 0, scaledWidth, scaledHeight);
 
 		// render the shading
