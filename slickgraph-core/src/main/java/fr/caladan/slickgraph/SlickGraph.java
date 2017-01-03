@@ -49,10 +49,16 @@ public class SlickGraph extends Group {
 		return timeseries;
 	}
 	public void setTimeseries(List<Timeseries> timeseries) {
-		start = timeseries.get(0).getData().get(0);
-		end = timeseries.get(0).getData().get(timeseries.get(0).getData().size() - 1);
 		this.timeseries.clear();
 		this.timeseries.addAll(timeseries);
+
+		if (timeseries.isEmpty()) {
+			start = -1;
+			end = -1;
+		} else {
+			start = timeseries.get(0).getData().get(0);
+			end = timeseries.get(0).getData().get(timeseries.get(0).getData().size() - 1);
+		}
 	}
 
 	/** Bandwidth to use when computing the kernel estimation */

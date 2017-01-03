@@ -1,5 +1,8 @@
 package fr.caladan.slickgraph;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,13 +14,16 @@ import org.junit.Test;
 
 public class SLGTest extends Application {
 
-	private List<Double> data;
+	private List<Timeseries> ts;
 
 	public SLGTest() {
-		data = new ArrayList<Double>();
+		List<Double> data = new ArrayList<Double>();
 		for (int i = 0; i < 100; i++) {
 			data.add((double) i);
 		}
+
+		ts = new ArrayList<Timeseries>();
+		ts.add(new Timeseries(data));
 	}
 
 	@Override
@@ -36,40 +42,37 @@ public class SLGTest extends Application {
 	public void testInitialization() {
 		SlickGraph slg = new SlickGraph();
 
-		/* assertNotNull(slg.dataProperty);
-		assertNull(slg.dataProperty.get());
+		assertNotNull(slg.canvas);
+		assertNotNull(slg.timeseries);
+		assertTrue(slg.timeseries.isEmpty());
 		assertNotNull(slg.kernelBandWidthProperty);
 		assertTrue(slg.kernelBandWidthProperty.get() == 5.);
-		assertNotNull(slg.histogram);
-		assertTrue(slg.histogram.isEmpty());
+		assertNotNull(slg.mapHistograms);
+		assertTrue(slg.mapHistograms.isEmpty());
+		assertNotNull(slg.mapSmoothedHistogram);
+		assertTrue(slg.mapSmoothedHistogram.isEmpty());
+		assertNotNull(slg.mapVertices);
+		assertTrue(slg.mapVertices.isEmpty());
 		assertTrue(slg.start == -1);
 		assertTrue(slg.end == -1);
-		assertTrue(slg.histogramMax == -1);
-		assertNotNull(slg.vertices);
-		assertTrue(slg.vertices.isEmpty());
 
-		try {
-			slg.setData(new ArrayList<Double>());
-		} catch (Exception e) {}
-		assertNotNull(slg.dataProperty.get());
-		assertTrue(slg.dataProperty.get().isEmpty()); */
+		slg.setTimeseries(new ArrayList<Timeseries>());
+		assertNotNull(slg.getTimeseries());
+		assertTrue(slg.getTimeseries().isEmpty());
 	}
 
 	@Test
 	public void testHistogram() {
 		SlickGraph slg = new SlickGraph();
-
-		/* try {
-			slg.setData(data);
-		} catch (Exception e) {}
+		slg.setTimeseries(ts);
 
 		slg.scaledWidth = 100;
 		slg.scaledHeight = 10;
-		slg.buildHistogram();
-		assertTrue(slg.histogram.size() == Math.floor(6. * slg.kernelBandWidthProperty.get()) + 100);
+		slg.buildHistogram(ts.get(0));
+		assertTrue(slg.mapHistograms.get(ts.get(0)).size() == Math.floor(6. * slg.kernelBandWidthProperty.get()) + 100);
 
-		slg.computeConvolution();
-		assertTrue(slg.smoothedHistogram.size() == Math.floor(6. * slg.kernelBandWidthProperty.get()) + 100); */
+		slg.computeConvolution(ts.get(0));
+		assertTrue(slg.mapSmoothedHistogram.get(ts.get(0)).size() == Math.floor(6. * slg.kernelBandWidthProperty.get()) + 100);
 	}
 
 	@Test
