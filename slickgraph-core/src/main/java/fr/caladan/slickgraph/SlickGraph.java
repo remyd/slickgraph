@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 import javafx.beans.InvalidationListener;
@@ -221,7 +222,10 @@ public class SlickGraph extends Group {
 			}
 			// TODO can throw a NullPointerException
 			int toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
-			timeCursor.setPosition(x, mapVertices.get(timeseries.get(timeseries.size() - 1)).get((int) Math.round(x * 2. * xScaleProperty.get()) / 2 * 2 + toTrim).y / yScaleProperty.get());
+			timeCursor.setPosition(
+					x,
+					mapVertices.get(timeseries.get(timeseries.size() - 1)).get((int) Math.round(x * 2. * xScaleProperty.get()) / 2 * 2 + toTrim).y / yScaleProperty.get()
+			);
 		};
 		addEventHandler(MouseEvent.MOUSE_MOVED, mouseEventHandler);
 		addEventHandler(MouseEvent.MOUSE_DRAGGED, mouseEventHandler);
@@ -507,6 +511,24 @@ public class SlickGraph extends Group {
 
 		computeVertices();
 		render();
+	}
+
+	/**
+	 * Return the timeseries under the position (x, y)
+	 *
+	 * @param x Horizontal position
+	 * @param y Vertical position
+	 * @return Timeseries currently under the position (x, y)
+	 */
+	public Optional<Timeseries> pickTimeseries(double x, double y) {
+		int toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
+		final double ys = y * yScaleProperty.get();
+
+		final int xTab = (int) (Math.round(x * 2. * xScaleProperty.get()) / 2 * 2 + toTrim);
+		return timeseries.stream()
+				.filter(ts -> mapVertices.get(ts).get(xTab).y <= ys &&
+				mapVertices.get(ts).get(xTab + 1).y >= ys)
+				.findFirst();
 	}
 
 	/** Draw the graph */
