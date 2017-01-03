@@ -124,6 +124,9 @@ public class SlickGraph extends Group {
 		showShadingProperty.set(showShading);
 	}
 
+	/** List of alpha values for the SlickGraph shading */
+	protected List<Double> slgAlphas;
+
 	/** Color of the timeseries outine */
 	protected SimpleObjectProperty<Color> curveColorProperty;
 	public SimpleObjectProperty<Color> curveColorProperty() {
@@ -168,6 +171,7 @@ public class SlickGraph extends Group {
 		getChildren().add(timeCursor);
 		timeCursorVisibleProperty = new SimpleBooleanProperty(true);
 		showShadingProperty = new SimpleBooleanProperty(true);
+		slgAlphas = new ArrayList<Double>();
 		showCurveProperty = new SimpleBooleanProperty(true);
 		curveColorProperty = new SimpleObjectProperty<Color>(Color.BLACK);
 
@@ -194,10 +198,11 @@ public class SlickGraph extends Group {
 				double value = mapSmoothedHistogram.values().stream()
 						.mapToDouble(h -> h.get((int) (x * xScaleProperty.get()) + (int) Math.floor(3. * kernelBandWidthProperty.get())) * (end - start) / scaledWidth)
 						.sum();
-				timeCursor.setTooltipText("y = " + value + " ");
+				timeCursor.setTooltipText(" y = " + value + " ");
 			}
 			// TODO can throw a NullPointerException
-			timeCursor.setPosition(x, mapVertices.get(timeseries.get(timeseries.size() - 1)).get((int) Math.round(x * 2. * xScaleProperty.get()) / 2 * 2).y / yScaleProperty.get());
+			int toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
+			timeCursor.setPosition(x, mapVertices.get(timeseries.get(timeseries.size() - 1)).get((int) Math.round(x * 2. * xScaleProperty.get()) / 2 * 2 + toTrim).y / yScaleProperty.get());
 		};
 		addEventHandler(MouseEvent.MOUSE_MOVED, mouseEventHandler);
 		addEventHandler(MouseEvent.MOUSE_DRAGGED, mouseEventHandler);
@@ -415,6 +420,25 @@ public class SlickGraph extends Group {
 		});
 	}
 
+	/** Compute the alpha values used for the SlickGraph shading */
+	protected void computeSlgAlphas() {
+		slgAlphas.clear();
+
+		int toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2) / 2;
+		IntStream.range(0, mapHistograms.get(timeseries.get(0)).size()).forEach(i -> {
+			double vh = mapHistograms.values().stream()
+					.mapToDouble(h -> h.get(i))
+					.sum();
+			double vsh = mapSmoothedHistogram.values().stream()
+					.mapToDouble(sh -> sh.get(i))
+					.sum();
+
+			slgAlphas.add(vh == 0 ? 0. : 1. / (1. + vsh / vh));
+		});
+
+		slgAlphas = slgAlphas.subList(toTrim, slgAlphas.size() - toTrim);
+	}
+
 	/** Compute the vertices of the graph */
 	protected void computeVertices() {
 		// nothing to do if not shown yet or not data
@@ -423,12 +447,13 @@ public class SlickGraph extends Group {
 		}
 
 		// aggregate the timeseries
-		timeseries.parallelStream().forEach(ts -> {
+		timeseries.stream().forEach(ts -> {
 			buildHistogram(ts);
 			computeConvolution(ts);
 		});
 
 		computeStackedVertices();
+		computeSlgAlphas();
 	}
 
 	/**
@@ -485,38 +510,40 @@ public class SlickGraph extends Group {
 		gc.fillRect(0, 0, scaledWidth, scaledHeight);
 
 		// render the shading
-		/* if (showShadingProperty.get()) {
-			List<Vertex> vertices = mapVertices.get(timeseries.get(2));
-			vertices.forEach(v -> {
-				gc.setStroke(v.color);
-				gc.strokeLine(v.x, scaledHeight, v.x, v.y);
-			});
-		} */
-
-		timeseries.forEach(ts -> {
-			List<Vertex> vertices = mapVertices.get(ts);
-			gc.setStroke(ts.getColor());
+		if (showShadingProperty.get()) {
+			// render the shading
+			List<Vertex> vertices = mapVertices.get(timeseries.get(timeseries.size() - 1));
 			for (int v = 0; v < vertices.size() - 1; v += 2) {
-				gc.strokeLine(vertices.get(v).x, vertices.get(v).y, vertices.get(v + 1).x, vertices.get(v + 1).y);
+				gc.setStroke(Color.rgb(0, 0, 0, slgAlphas.get(v / 2)));
+				gc.strokeLine(vertices.get(v).x, vertices.get(v).y, vertices.get(v + 1).x, scaledHeight);
 			}
-		});
 
-		/* mapVertices.forEach((timeseries, vertices) -> {
-			vertices.forEach(v -> {
-				// System.out.println(v);
-				gc.setStroke(v.color);
-				gc.strokeLine(v.x, scaledHeight, v.x, v.y);
-			});
-		}); */
-
-		// render the curve
-		if (showCurveProperty.get()) {
-			gc.setStroke(Color.BLACK);
-			mapVertices.values().forEach(vertices -> {
+			// render the curve
+			if (showCurveProperty.get()) {
+				gc.setStroke(curveColorProperty.get());
 				for (int j = 0; j < vertices.size() - 3; j += 2) {
 					gc.strokeLine(vertices.get(j).x, vertices.get(j).y, vertices.get(j + 2).x, vertices.get(j + 2).y);
 				}
+			}
+		} else {
+			// render the times
+			timeseries.forEach(ts -> {
+				List<Vertex> vertices = mapVertices.get(ts);
+				gc.setStroke(ts.getColor());
+				for (int v = 0; v < vertices.size() - 1; v += 2) {
+					gc.strokeLine(vertices.get(v).x, vertices.get(v).y, vertices.get(v + 1).x, vertices.get(v + 1).y);
+				}
 			});
+
+			// render the curve
+			if (showCurveProperty.get()) {
+				gc.setStroke(curveColorProperty.get());
+				mapVertices.values().forEach(vertices -> {
+					for (int j = 0; j < vertices.size() - 3; j += 2) {
+						gc.strokeLine(vertices.get(j).x, vertices.get(j).y, vertices.get(j + 2).x, vertices.get(j + 2).y);
+					}
+				});
+			}
 		}
 	}
 
