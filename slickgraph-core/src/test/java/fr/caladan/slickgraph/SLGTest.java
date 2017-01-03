@@ -77,16 +77,14 @@ public class SLGTest extends Application {
 
 	@Test
 	public void testKernel() {
-		/* SlickGraph slg = new SlickGraph();
+		SlickGraph slg = new SlickGraph();
 		List<Double> kernel = slg.gaussianKernel();
-		try {
-			slg.setData(data);
-		} catch (Exception e) {}
+		slg.setTimeseries(ts);
 
 		assertTrue(kernel.size() == slg.kernelBandWidthProperty.get() * 6 + 1);
 		for (int i = 0; i < slg.kernelBandWidthProperty.get() * 3; i++) {
 			assertTrue(kernel.get(i).doubleValue() == kernel.get(kernel.size() - i - 1).doubleValue());
-		} */
+		}
 	}
 
 }
