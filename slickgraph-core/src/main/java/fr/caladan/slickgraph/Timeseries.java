@@ -2,6 +2,7 @@ package fr.caladan.slickgraph;
 
 import java.util.List;
 
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -25,6 +26,7 @@ public class Timeseries {
 		nameProperty.set(name);
 	}
 
+	/** Color to use for rendering */
 	protected SimpleObjectProperty<Color> colorProperty;
 	public SimpleObjectProperty<Color> colorProperty() {
 		return colorProperty;
@@ -34,6 +36,18 @@ public class Timeseries {
 	}
 	public void setColor(Color color) {
 		colorProperty.set(color);
+	}
+
+	/** Indicates whether it is selected or not */
+	protected SimpleBooleanProperty selectedProperty;
+	public SimpleBooleanProperty selectedProperty() {
+		return selectedProperty;
+	}
+	public boolean isSelected() {
+		return selectedProperty.get();
+	}
+	public void setSelected(boolean selected) {
+		selectedProperty.set(selected);
 	}
 
 	/** List of timestamps that constitutes the timeseries */
@@ -72,6 +86,7 @@ public class Timeseries {
 	public Timeseries(String name, Color color, List<Double> data) {
 		nameProperty = new SimpleStringProperty(name);
 		colorProperty = new SimpleObjectProperty<Color>(color);
+		selectedProperty = new SimpleBooleanProperty(false);
 		this.data = FXCollections.observableArrayList();
 		try {
 			setData(data);

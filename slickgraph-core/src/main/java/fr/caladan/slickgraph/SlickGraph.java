@@ -50,8 +50,10 @@ public class SlickGraph extends Group {
 		return timeseries;
 	}
 	public void setTimeseries(List<Timeseries> timeseries) {
+		this.timeseries.forEach(ts -> ts.selectedProperty().removeListener(propertiesListener));
 		this.timeseries.clear();
 		this.timeseries.addAll(timeseries);
+		this.timeseries.forEach(ts -> ts.selectedProperty().addListener(propertiesListener));
 
 		if (timeseries.isEmpty()) {
 			start = -1;
@@ -170,6 +172,9 @@ public class SlickGraph extends Group {
 		showCurveProperty.set(showCurve);
 	}
 
+	/** Listener of the different properties */
+	protected InvalidationListener propertiesListener;
+
 	/** Public default constructor - initializes the properties */
 	public SlickGraph() {
 		super();
@@ -234,7 +239,7 @@ public class SlickGraph extends Group {
 		timeCursor.visibleProperty().bind(timeCursorVisibleProperty);
 
 		// bind the properties setting the visualization parameters
-		InvalidationListener propertiesListener = e -> render();
+		propertiesListener = e -> render();
 		showShadingProperty.addListener(propertiesListener);
 		showCurveProperty.addListener(propertiesListener);
 		backgroundColorProperty.addListener(propertiesListener);
@@ -524,11 +529,17 @@ public class SlickGraph extends Group {
 		int toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
 		final double ys = y * yScaleProperty.get();
 
-		final int xTab = (int) (Math.round(x * 2. * xScaleProperty.get()) / 2 * 2 + toTrim);
-		return timeseries.stream()
+		final int xTab = (int) (Math.round(x * 2. * xScaleProperty.get()) + toTrim);
+		Optional<Timeseries> pickedTs = timeseries.stream()
 				.filter(ts -> mapVertices.get(ts).get(xTab).y <= ys &&
 				mapVertices.get(ts).get(xTab + 1).y >= ys)
 				.findFirst();
+
+		// remove the previously selected timeseries and set the new selected one
+		timeseries.stream().filter(ts -> ts.isSelected()).findFirst().ifPresent(ts -> ts.setSelected(false));
+		pickedTs.ifPresent(ts -> ts.setSelected(true));
+
+		return pickedTs;
 	}
 
 	/** Draw the graph */
@@ -571,7 +582,11 @@ public class SlickGraph extends Group {
 			// render the times
 			timeseries.forEach(ts -> {
 				List<Vertex> vertices = mapVertices.get(ts);
-				gc.setStroke(ts.getColor());
+				if (ts.isSelected()) {
+					gc.setStroke(ts.getColor().desaturate());
+				} else {
+					gc.setStroke(ts.getColor());
+				}
 				for (int v = 0; v < vertices.size() - 1; v += 2) {
 					gc.strokeLine(vertices.get(v).x, vertices.get(v).y, vertices.get(v + 1).x, vertices.get(v + 1).y);
 				}
