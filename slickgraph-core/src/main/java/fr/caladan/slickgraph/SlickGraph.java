@@ -194,7 +194,7 @@ public class SlickGraph extends Group {
 		timeCursor = new TimeCursor();
 		getChildren().add(timeCursor);
 		timeCursorVisibleProperty = new SimpleBooleanProperty(true);
-		showShadingProperty = new SimpleBooleanProperty(true);
+		showShadingProperty = new SimpleBooleanProperty(false);
 		slgAlphas = new ArrayList<Double>();
 		backgroundColorProperty = new SimpleObjectProperty<Color>(Color.WHITE);
 		showCurveProperty = new SimpleBooleanProperty(true);

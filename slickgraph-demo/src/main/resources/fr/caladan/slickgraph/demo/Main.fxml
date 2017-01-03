@@ -12,7 +12,7 @@
             <Label text="Smoothing strength" />
             <Slider fx:id="smoothingSlider" max="30.0" maxWidth="-Infinity" min="1.0" minWidth="-Infinity" prefWidth="200.0" />
             <Separator orientation="VERTICAL" />
-            <CheckBox fx:id="showShadingCheckBox" mnemonicParsing="false" selected="true" text="Show shading" />
+            <CheckBox fx:id="showShadingCheckBox" mnemonicParsing="false" text="Show shading" />
             <CheckBox fx:id="showCurveCheckBox" mnemonicParsing="false" selected="true" text="Show curve" />
             <CheckBox fx:id="showTimeCursorCheckBox" mnemonicParsing="false" selected="true" text="Show time cursor" />
          </items>
