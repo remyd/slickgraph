@@ -407,9 +407,9 @@ public class SlickGraph extends Group {
 		}
 
 		// trim 3 times the kernel bandwidth at each side
-		int toTrim = (int) Math.floor(3. * kernelBandWidthProperty.get());
+		int toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
 		mapVertices.forEach((t, vt) -> {
-			vt = vt.subList(toTrim * 2, vt.size() - toTrim * 2);
+			vt = vt.subList(toTrim, vt.size() - toTrim);
 			vt.forEach(v -> v.x -= toTrim);
 			mapVertices.put(t, vt);
 		});
