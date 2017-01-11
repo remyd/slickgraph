@@ -1,6 +1,8 @@
 package fr.caladan.slickgraph;
 
-import java.awt.Toolkit;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.HeadlessException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -290,8 +292,16 @@ public class SlickGraph extends Group {
 
 	/** Set the scale on the canvas to have a 1:1 pixel mapping */
 	protected void handleHiDPI() {
-		double nativeWidth = Toolkit.getDefaultToolkit().getScreenSize().getWidth();
-		double nativeHeight = Toolkit.getDefaultToolkit().getScreenSize().getHeight();
+		GraphicsDevice devices[] = null;
+		try {
+			devices = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices();
+		} catch (HeadlessException e) {
+			return;
+		}
+
+		GraphicsDevice currentDevice = devices.length > 1 ? devices[1] : devices[0];
+		double nativeWidth = currentDevice.getDisplayMode().getWidth();
+		double nativeHeight = currentDevice.getDisplayMode().getHeight();
 		double screenWidth = Screen.getPrimary().getVisualBounds().getWidth();
 		double screenHeight = Screen.getPrimary().getVisualBounds().getHeight();
 
