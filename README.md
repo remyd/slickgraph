@@ -9,4 +9,4 @@ Visual artifacts still exist but are minimized to the pixels.
 
 ## Documentation
 
-You will find the instructions to use the library [here](http://caladan.fr/getstarted.html).
+You will find the instructions to use the library [here](http://caladan.fr/slickgraph/getstarted.html).
