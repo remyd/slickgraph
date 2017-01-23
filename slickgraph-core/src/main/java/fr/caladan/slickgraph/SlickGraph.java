@@ -227,14 +227,14 @@ public class SlickGraph extends Group {
 				return;
 			}
 
-			double x = e instanceof MouseEvent ? ((MouseEvent) e).getX() : ((ScrollEvent) e).getX();
+			double x = Math.max(0, Math.min(canvas.getWidth(), e instanceof MouseEvent ? ((MouseEvent) e).getX() : ((ScrollEvent) e).getX()));
 			int histogramSize = mapHistograms.get(timeseries.get(0)).size();
-			if (x < histogramSize) {
+			// if (x < histogramSize) {
 				double value = mapSmoothedHistogram.values().stream()
 						.mapToDouble(h -> h.get((int) (x * xScaleProperty.get()) + (int) Math.floor(3. * kernelBandWidthProperty.get())) * (end - start) / scaledWidth)
 						.sum();
 				timeCursor.setTooltipText(" y = " + value + " ");
-			}
+			// }
 			// TODO can throw a NullPointerException
 			int toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
 			timeCursor.setPosition(
