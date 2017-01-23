@@ -527,15 +527,17 @@ public class SlickGraph extends Group {
 
 		// aggregate the timeseries
 		timeseries.stream().forEach(ts -> {
-			buildHistogram(ts);
-			computeConvolution(ts);
+			synchronized (ts) {
+				buildHistogram(ts);
+				computeConvolution(ts);
+			}
 		});
 
 		computeStackedVertices();
 		computeSlgAlphas();
 		
-		needsRefresh.set(true);
 		verticesReady.set(true);
+		needsRefresh.set(true);
 	}
 
 	/**
@@ -619,14 +621,12 @@ public class SlickGraph extends Group {
 				}
 			}
 		} else {
-			// render the times
-			timeseries.forEach(ts -> {
+			// render the timeseries
+			mapVertices.entrySet().forEach(entry -> {
+				Timeseries ts = entry.getKey();
 				List<Vertex> vertices = mapVertices.get(ts);
-				if (ts.isSelected()) {
-					gc.setStroke(ts.getColor().desaturate());
-				} else {
-					gc.setStroke(ts.getColor());
-				}
+
+				gc.setStroke(ts.isSelected() ? ts.getColor().desaturate() : ts.getColor());
 				for (int v = 0; v < vertices.size() - 1; v += 2) {
 					gc.strokeLine(vertices.get(v).x, vertices.get(v).y, vertices.get(v + 1).x, vertices.get(v + 1).y);
 				}
