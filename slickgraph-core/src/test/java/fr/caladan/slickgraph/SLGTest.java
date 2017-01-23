@@ -78,7 +78,7 @@ public class SLGTest extends Application {
 	@Test
 	public void testKernel() {
 		SlickGraph slg = new SlickGraph();
-		List<Double> kernel = slg.gaussianKernel();
+		List<Double> kernel = StatisticKernel.gaussian(slg.getKernelBandWidth());
 		slg.setTimeseries(ts);
 
 		assertTrue(kernel.size() == slg.kernelBandWidthProperty.get() * 6 + 1);
