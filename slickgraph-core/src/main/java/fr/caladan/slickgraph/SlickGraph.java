@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 
+import fr.caladan.slickgraph.StatisticKernel.KernelType;
 import javafx.animation.AnimationTimer;
 import javafx.beans.InvalidationListener;
 import javafx.beans.property.DoubleProperty;
@@ -47,7 +48,7 @@ public class SlickGraph extends Group {
 	public DoubleProperty heightProperty() {
 		return canvas.heightProperty();
 	}
-
+	
 	/** Timeseries to render */
 	protected ObservableList<Timeseries> timeseries;
 	public List<Timeseries> getTimeseries() {
@@ -66,6 +67,18 @@ public class SlickGraph extends Group {
 			start = timeseries.get(0).getData().get(0);
 			end = timeseries.get(0).getData().get(timeseries.get(0).getData().size() - 1);
 		}
+	}
+	
+	/** Type of the kernel to use to smooth the graph */
+	protected SimpleObjectProperty<KernelType> kernelTypeProperty;
+	public SimpleObjectProperty<KernelType> kernelTypeProperty() {
+		return kernelTypeProperty;
+	}
+	public void setKernelType(KernelType kernelType) {
+		kernelTypeProperty.set(kernelType);
+	}
+	public KernelType getKernelType() {
+		return kernelTypeProperty.get();
 	}
 
 	/** Bandwidth to use when computing the kernel estimation */
@@ -193,6 +206,7 @@ public class SlickGraph extends Group {
 		getChildren().add(canvas);
 		timeseries = FXCollections.observableArrayList();
 		kernelBandWidthProperty = new SimpleDoubleProperty(5.0);
+		kernelTypeProperty = new SimpleObjectProperty<KernelType>(KernelType.GAUSSIAN);
 		mapHistograms = new HashMap<Timeseries, List<Double>>();
 		mapSmoothedHistogram = new HashMap<Timeseries, List<Double>>();
 		start = -1;
@@ -228,14 +242,11 @@ public class SlickGraph extends Group {
 			}
 
 			double x = Math.max(0, Math.min(canvas.getWidth(), e instanceof MouseEvent ? ((MouseEvent) e).getX() : ((ScrollEvent) e).getX()));
-			int histogramSize = mapHistograms.get(timeseries.get(0)).size();
-			// if (x < histogramSize) {
-				double value = mapSmoothedHistogram.values().stream()
-						.mapToDouble(h -> h.get((int) (x * xScaleProperty.get()) + (int) Math.floor(3. * kernelBandWidthProperty.get())) * (end - start) / scaledWidth)
-						.sum();
-				timeCursor.setTooltipText(" y = " + value + " ");
-			// }
-			// TODO can throw a NullPointerException
+			double value = mapSmoothedHistogram.values().stream()
+					.mapToDouble(h -> h.get((int) (x * xScaleProperty.get()) + (int) Math.floor(3. * kernelBandWidthProperty.get())) * (end - start) / scaledWidth)
+					.sum();
+			timeCursor.setTooltipText(" y = " + value + " ");
+
 			int toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
 			timeCursor.setPosition(
 					x,
@@ -296,6 +307,20 @@ public class SlickGraph extends Group {
 	}
 
 	/**
+	 * Constructor that initializes the data to visualize and the smoothing method
+	 *
+	 * @param data Data that represent the time serie to render
+	 * @param kernelType Kernel to use for the smoothing step
+	 * @throws Exception If the data is not valid (timestamps should be strictly increasing)
+	 */
+
+	public SlickGraph(List<Double> data, KernelType kernelType) throws Exception {
+		this(data);
+		
+		kernelTypeProperty.set(kernelType);
+	}
+
+	/**
 	 * Constructor that initializes the size of the graph and the data to visualize
 	 *
 	 * @param width Width of the graph
@@ -308,6 +333,21 @@ public class SlickGraph extends Group {
 
 		canvas.setWidth(width);
 		canvas.setHeight(height);
+	}
+
+	/**
+	 * Constructor that initializes the size of the graph, the data to visualize and the smoothing method
+	 *
+	 * @param width Width of the graph
+	 * @param height Height of the graph
+	 * @param data Data that represent the time serie to render
+	 * @param kernelType Kernel to use for the smoothing step
+	 * @throws Exception If the data is not valid (timestamps should be strictly increasing)
+	 */
+	public SlickGraph(double width, double height, List<Double> data, KernelType kernelType) throws Exception {
+		this(width, height, data);
+		
+		kernelTypeProperty.set(kernelType);
 	}
 
 	/** Set the scale on the canvas to have a 1:1 pixel mapping */
@@ -391,25 +431,6 @@ public class SlickGraph extends Group {
 	}
 
 	/**
-	 * Compute the Gaussian values
-	 *
-	 * @return Gaussian values
-	 */
-	protected List<Double> gaussianKernel() {
-		double kernelBandWidth = kernelBandWidthProperty.get();
-		double h = 2. * kernelBandWidth * kernelBandWidth;
-		double v = 1. / (kernelBandWidth * Math.sqrt(2. * Math.PI));
-
-		int kernelSize = (int) (Math.ceil(kernelBandWidth * 3) * 2 + 1);
-		List<Double> gaussianValues = new ArrayList<Double>(kernelSize);
-		for (double i = 0; i < kernelSize; i++) {
-			gaussianValues.add(Math.exp(-Math.pow(i - kernelSize / 2, 2) / h) * v);
-		}
-
-		return gaussianValues;
-	}
-
-	/**
 	 * Convolve the histogram with a statistic kernel for a given timeseries
 	 *
 	 * @param timeseries Timeseries whose histogram is to convolve
@@ -417,18 +438,17 @@ public class SlickGraph extends Group {
 	protected void computeConvolution(Timeseries timeseries) {
 		List<Double> histogram = mapHistograms.get(timeseries);
 		List<Double> smoothedHistogram = new ArrayList<Double>();
-		// TODO can throw a NullPointerException
 		histogram.forEach(i -> smoothedHistogram.add(0.));
 
 		// compute the convolution of the time serie width the kernel
-		List<Double> gaussianValues = gaussianKernel();
+		List<Double> kernelValues = StatisticKernel.kernelValues(kernelBandWidthProperty.get(), kernelTypeProperty.get());
 		for (int i = 2; i < histogram.size(); i++) {
-			for (int k = 0; k < gaussianValues.size(); k++) {
-				int j = (int) Math.ceil(i + k - gaussianValues.size() / 2.);
+			for (int k = 0; k < kernelValues.size(); k++) {
+				int j = (int) Math.ceil(i + k - kernelValues.size() / 2.);
 				if (j < 0 || j > histogram.size() - 1) {
 					continue;
 				}
-				smoothedHistogram.set(i, smoothedHistogram.get(i) + histogram.get(j) * gaussianValues.get(k));
+				smoothedHistogram.set(i, smoothedHistogram.get(i) + histogram.get(j) * kernelValues.get(k));
 			}
 		}
 
@@ -439,7 +459,6 @@ public class SlickGraph extends Group {
 	protected void computeStackedVertices() {
 		mapVertices.clear();
 
-		// TODO can throw a NullPointerException
 		double max = IntStream.range(0, mapSmoothedHistogram.get(timeseries.get(0)).size())
 		 		.mapToDouble(i -> mapSmoothedHistogram.values().stream().mapToDouble(h -> h.get(i)).sum())
 		 		.summaryStatistics()
