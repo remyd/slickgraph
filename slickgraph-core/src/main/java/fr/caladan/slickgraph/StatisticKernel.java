@@ -1,7 +1,11 @@
 package fr.caladan.slickgraph;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import javafx.util.Pair;
 
 /**
  * Implements the different statistic kernel available to smooth the graph
@@ -12,6 +16,9 @@ public class StatisticKernel {
 		GAUSSIAN,
 	};
 	
+	/** Kernel values cached for futur usage */
+	protected static Map<Pair<Double, KernelType>, List<Double>> cachedValues = new HashMap<Pair<Double, KernelType>, List<Double>>();
+	
 	/**
 	 * Return the kernel values according to its type and bandwidth
 	 * 
@@ -20,8 +27,14 @@ public class StatisticKernel {
 	 * @return Kernel values
 	 */
 	public static List<Double> kernelValues(double bandWidth, KernelType kernelType) {
-		List<Double> kernelValues;
+		// return the cached value if any
+		Pair<Double, KernelType> key = new Pair<Double, KernelType>(bandWidth, kernelType);
+		if (cachedValues.containsKey(key)) {
+			return cachedValues.get(key);
+		}
 
+		// otherwise, compute the kernel values
+		List<Double> kernelValues;
 		switch (kernelType) {
 			case GAUSSIAN:
 				kernelValues = gaussian(bandWidth);
@@ -29,6 +42,9 @@ public class StatisticKernel {
 			default:
 				kernelValues = new ArrayList<Double>();
 		}
+		
+		// cache the values
+		cachedValues.put(key, kernelValues);
 
 		return kernelValues;
 	}
