@@ -9,8 +9,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 
+import javafx.animation.AnimationTimer;
 import javafx.beans.InvalidationListener;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -176,11 +178,17 @@ public class SlickGraph extends Group {
 
 	/** Listener of the different properties */
 	protected InvalidationListener propertiesListener;
-
+	
+	/** Atomic variable to know whether the vertices are ready or not */
+	protected AtomicBoolean verticesReady;
+	
+	/** Indicates whether or not the frame needs to be refresh */
+	protected AtomicBoolean needsRefresh;
+	
 	/** Public default constructor - initializes the properties */
 	public SlickGraph() {
 		super();
-
+		
 		canvas = new Canvas();
 		getChildren().add(canvas);
 		timeseries = FXCollections.observableArrayList();
@@ -201,24 +209,24 @@ public class SlickGraph extends Group {
 		backgroundColorProperty = new SimpleObjectProperty<Color>(Color.WHITE);
 		showCurveProperty = new SimpleBooleanProperty(true);
 		curveColorProperty = new SimpleObjectProperty<Color>(Color.BLACK);
+		verticesReady = new AtomicBoolean(false);
+		needsRefresh = new AtomicBoolean(false);
 
 		// render the graph when a timeseries is added or removed
-		timeseries.addListener((ListChangeListener.Change<? extends Timeseries> c) -> {
-			computeVertices();
-			render();
-		});
+		timeseries.addListener((ListChangeListener.Change<? extends Timeseries> c) -> computeVertices());
 
 		canvas.widthProperty().addListener(e -> handleHiDPI());
 		canvas.heightProperty().addListener(e -> handleHiDPI());
 		timeCursor.getCursorLine().endYProperty().bind(canvas.heightProperty());
 
-		kernelBandWidthProperty.addListener(e -> {
-			computeVertices();
-			render();
-		});
-
+		kernelBandWidthProperty.addListener(e -> computeVertices());
+		
 		// mouse event for the time cursor
 		EventHandler<? super InputEvent> mouseEventHandler = e -> {
+			if (!verticesReady.get()) {
+				return;
+			}
+
 			double x = e instanceof MouseEvent ? ((MouseEvent) e).getX() : ((ScrollEvent) e).getX();
 			int histogramSize = mapHistograms.get(timeseries.get(0)).size();
 			if (x < histogramSize) {
@@ -233,6 +241,8 @@ public class SlickGraph extends Group {
 					x,
 					mapVertices.get(timeseries.get(timeseries.size() - 1)).get((int) Math.round(x * 2. * xScaleProperty.get()) / 2 * 2 + toTrim).y / yScaleProperty.get()
 			);
+			
+			needsRefresh.set(true);
 		};
 		addEventHandler(MouseEvent.MOUSE_MOVED, mouseEventHandler);
 		addEventHandler(MouseEvent.MOUSE_DRAGGED, mouseEventHandler);
@@ -241,11 +251,21 @@ public class SlickGraph extends Group {
 		timeCursor.visibleProperty().bind(timeCursorVisibleProperty);
 
 		// bind the properties setting the visualization parameters
-		propertiesListener = e -> render();
+		propertiesListener = e -> needsRefresh.set(true);
 		showShadingProperty.addListener(propertiesListener);
 		showCurveProperty.addListener(propertiesListener);
 		backgroundColorProperty.addListener(propertiesListener);
 		curveColorProperty.addListener(propertiesListener);
+		
+		// launch the rendering loop - 60 fps
+		new AnimationTimer() {
+			@Override
+			public void handle(long now) {
+				if (needsRefresh.getAndSet(false)) {
+					render();
+				}
+			}
+		}.start();
 	}
 
 	/**
@@ -322,7 +342,6 @@ public class SlickGraph extends Group {
 
 		// update the view
 		computeVertices();
-		render();
 	}
 
 	/**
@@ -480,6 +499,8 @@ public class SlickGraph extends Group {
 
 	/** Compute the vertices of the graph */
 	protected void computeVertices() {
+		verticesReady.set(false);
+
 		// nothing to do if not shown yet or not data
 		if (canvas.getWidth() == 0. || canvas.getHeight() == 0. || timeseries.isEmpty()) {
 			return;
@@ -493,6 +514,9 @@ public class SlickGraph extends Group {
 
 		computeStackedVertices();
 		computeSlgAlphas();
+		
+		needsRefresh.set(true);
+		verticesReady.set(true);
 	}
 
 	/**
@@ -511,7 +535,6 @@ public class SlickGraph extends Group {
 		}
 
 		computeVertices();
-		render();
 	}
 
 	/**
@@ -525,7 +548,6 @@ public class SlickGraph extends Group {
 		end += delta;
 
 		computeVertices();
-		render();
 	}
 
 	/**
@@ -538,9 +560,10 @@ public class SlickGraph extends Group {
 	public Optional<Timeseries> pickTimeseries(double x, double y) {
 		int toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
 		final double ys = y * yScaleProperty.get();
-
 		final int xTab = (int) (Math.round(x * 2. * xScaleProperty.get()) + toTrim);
-		Optional<Timeseries> pickedTs = timeseries.stream()
+		Optional<Timeseries> pickedTs = !verticesReady.get() ?
+				Optional.empty() :
+				timeseries.stream()
 				.filter(ts -> mapVertices.get(ts).get(xTab).y <= ys &&
 				mapVertices.get(ts).get(xTab + 1).y >= ys)
 				.findFirst();
@@ -554,18 +577,6 @@ public class SlickGraph extends Group {
 
 	/** Draw the graph */
 	protected void render() {
-		// sanity check
-		boolean verticesReady = true;
-		int i = 0;
-		while (i < timeseries.size() && verticesReady) {
-			verticesReady = verticesReady && mapVertices.containsKey(timeseries.get(i));
-			i++;
-		}
-
-		if (timeseries == null || timeseries.isEmpty() || !verticesReady) {
-			return;
-		}
-
 		GraphicsContext gc = canvas.getGraphicsContext2D();
 
 		// clear the canvas
