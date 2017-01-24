@@ -1,2 +1,3 @@
 include 'slickgraph-core'
 include 'slickgraph-demo'
+include 'slickgraph-demo-scala'

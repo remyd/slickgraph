@@ -3,3 +3,5 @@ build/
 .classpath
 .project
 .settings/
+.*.swp
+.cache-main
