@@ -546,7 +546,7 @@ public class SlickGraph extends Group {
 	 * @param z Y-delta of the zoom
 	 */
 	public void zoom(double z) {
-		double delta = 50. * (end - start) / scaledWidth;
+		double delta = 50. * (end - start) / canvas.getWidth();
 		if (z > 0) {
 			start += delta;
 			end -= delta;
@@ -564,7 +564,7 @@ public class SlickGraph extends Group {
 	 * @param deltaX Horizontal displacement of the mouse cursor
 	 */
 	public void pan(double deltaX) {
-		double delta = deltaX * (end - start) / scaledWidth;
+		double delta = deltaX * (end - start) / canvas.getWidth();
 		start += delta;
 		end += delta;
 
