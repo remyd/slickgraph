@@ -394,11 +394,8 @@ public class SlickGraph extends Group {
 	 * @return
 	 */
 	protected double[] buildPixelBounds(double start, double end) {
-		// int toTrim = 0; // (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
-		// toTrim = (int) Math.floor(6. * kernelBandWidthProperty.get());
-		// toTrim = (int) Math.round(6. * kernelBandWidthProperty.get());
 		toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
-		double timeSliceDuration = (end - start) / (scaledWidth); // + toTrim);
+		double timeSliceDuration = (end - start) / (scaledWidth);
 		double[] pixelBounds = new double[(int) (scaledWidth + 1 + 2 * toTrim)];
 
 		for (int i = 0; i < pixelBounds.length; i++) {
@@ -582,9 +579,8 @@ public class SlickGraph extends Group {
 	 * @return Timeseries currently under the position (x, y)
 	 */
 	public Optional<Timeseries> pickTimeseries(double x, double y) {
-		// int toTrim = 0; // (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
 		final double ys = y * yScaleProperty.get();
-		final int xTab = (int) (Math.round(x * 2. * xScaleProperty.get()) + toTrim);
+		final int xTab = (int) Math.round(x * 2. * xScaleProperty.get()) / 2 * 2;
 		Optional<Timeseries> pickedTs = !verticesReady.get() ?
 				Optional.empty() :
 				timeseries.stream()
