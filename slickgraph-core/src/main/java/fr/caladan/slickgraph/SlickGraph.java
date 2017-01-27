@@ -251,8 +251,8 @@ public class SlickGraph extends Group {
 			timeCursor.setTooltipText(" y = " + value + " ");
 
 			timeCursor.setPosition(
-					x + toTrim / 2,
-					mapVertices.get(timeseries.get(timeseries.size() - 1)).get((int) Math.round(x * 2. * xScaleProperty.get()) / 2 * 2 + toTrim).y / yScaleProperty.get()
+					x,
+					mapVertices.get(timeseries.get(timeseries.size() - 1)).get((int) Math.round(x * 2. * xScaleProperty.get()) / 2 * 2).y / yScaleProperty.get()
 			);
 			
 			needsRefresh.set(true);
