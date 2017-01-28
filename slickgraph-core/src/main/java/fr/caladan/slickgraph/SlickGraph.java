@@ -249,10 +249,12 @@ public class SlickGraph extends Group {
 					.mapToDouble(h -> h.get((int) (x * xScaleProperty.get()) + (int) Math.floor(3. * kernelBandWidthProperty.get())) * (end - start) / scaledWidth)
 					.sum();
 			timeCursor.setTooltipText(" y = " + value + " ");
-
+			
 			timeCursor.setPosition(
 					x,
-					mapVertices.get(timeseries.get(timeseries.size() - 1)).get((int) Math.round(x * 2. * xScaleProperty.get()) / 2 * 2).y / yScaleProperty.get()
+					mapVertices.get(timeseries.get(timeseries.size() - 1)).get(
+							(int) Math.max(0, Math.round((x - 1) * 2. * xScaleProperty.get()) / 2 * 2)
+					).y / yScaleProperty.get()
 			);
 			
 			needsRefresh.set(true);
