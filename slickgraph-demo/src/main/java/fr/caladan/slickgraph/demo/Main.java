@@ -20,6 +20,7 @@ public class Main extends Application {
 			root = (Parent) new FXMLLoader(getClass().getResource("/fr/caladan/slickgraph/demo/Main.fxml")).load();
 		} catch (IOException e) {
 			System.err.println("Could not launch the demo");
+			e.printStackTrace();
 			System.exit(-1);
 		}
 

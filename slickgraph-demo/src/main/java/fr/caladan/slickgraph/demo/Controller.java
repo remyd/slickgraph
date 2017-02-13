@@ -16,15 +16,17 @@ import javafx.scene.layout.AnchorPane;
 import javafx.scene.paint.Color;
 import fr.caladan.slickgraph.SlickGraph;
 import fr.caladan.slickgraph.Timeseries;
+import fr.caladan.slickgraph.controller.SlickGraphController;
+import fr.caladan.slickgraph.dataloader.InMemoryTimeseriesLoader;
 
 /**
  * Controller showing how to bind the slick graph component events
  */
-public class Controller implements Initializable {
+public class Controller extends SlickGraphController {
 
 	/** Root pane of the window */
-	@FXML
-	private AnchorPane root;
+	// @FXML
+	// private AnchorPane root;
 
 	/** Toolbar containing the widgets */
 	@FXML
@@ -47,20 +49,22 @@ public class Controller implements Initializable {
 	private CheckBox showTimeCursorCheckBox;
 
 	/** Slick Graph widget */
-	private SlickGraph slickGraph;
+	// private SlickGraph slickGraph;
 
 	/** Horizontal coordinate of the last mouse event */
-	protected double origMouseX;
+	// protected double origMouseX;
 
 	@Override
 	public void initialize(URL location, ResourceBundle resources) {
-		// layout adjustment due to hidpi settings
-		root.heightProperty().addListener(e -> AnchorPane.setTopAnchor(root, toolBar.getHeight()));
+		super.initialize(location, resources);
 
-		slickGraph = new SlickGraph();
+		// layout adjustment due to hidpi settings
+		slgContainer.heightProperty().addListener(e -> AnchorPane.setTopAnchor(slgContainer, toolBar.getHeight()));
+
+		/* slickGraph = new SlickGraph();
 		slickGraph.widthProperty().bind(root.widthProperty());
 		slickGraph.heightProperty().bind(root.heightProperty());
-		root.getChildren().add(slickGraph);
+		root.getChildren().add(slickGraph); */
 
 		// bind the slider value to the kernel bandwidth
 		smoothingSlider.setValue(slickGraph.getKernelBandWidth());
@@ -71,29 +75,40 @@ public class Controller implements Initializable {
 		slickGraph.showCurveProperty().bind(showCurveCheckBox.selectedProperty());
 		slickGraph.timeCursorVisibleProperty().bind(showTimeCursorCheckBox.selectedProperty());
 
-		origMouseX = 0;
-
 		// pick timeseries at the mouse position
-		slickGraph.addEventHandler(MouseEvent.MOUSE_MOVED, e -> slickGraph.pickTimeseries(e.getX(), e.getY()));
+		// slickGraph.addEventHandler(MouseEvent.MOUSE_MOVED, e -> slickGraph.pickTimeseries(e.getX(), e.getY()));
 
 		// zoom in data on scroll
-		slickGraph.addEventHandler(ScrollEvent.ANY, e -> slickGraph.zoom(e.getDeltaY()));
+		// slickGraph.addEventHandler(ScrollEvent.ANY, e -> slickGraph.zoom(e.getDeltaY()));
 
 		// save the position of the mouse when pressed
-		slickGraph.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> origMouseX = e.getSceneX());
+		// slickGraph.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> origMouseX = e.getSceneX());
 
 		// dragging the mouse performs a pan
-		slickGraph.addEventHandler(MouseEvent.MOUSE_DRAGGED, e -> {
+		/* slickGraph.addEventHandler(MouseEvent.MOUSE_DRAGGED, e -> {
 			slickGraph.pan(origMouseX - e.getSceneX());
 			origMouseX = e.getSceneX();
-		});
+		}); */
 
 		// feed the graph
+		/* List<Timeseries> timeseries = new ArrayList<Timeseries>();
+		timeseries.add(new Timeseries("my timeseries 1", Color.RED, DataGenerator.generateTimeseries(1000)));
+		timeseries.add(new Timeseries("my timeseries 2", Color.GREEN, DataGenerator.generateTimeseries(1000)));
+		timeseries.add(new Timeseries("my timeseries 3", Color.BLUE, DataGenerator.generateTimeseries(1000)));
+		slickGraph.setTimeseries(timeseries); */
+	}
+
+	/* (non-Javadoc)
+	 * @see fr.caladan.slickgraph.controller.SlickGraphController#initializeTimeseriesLoader()
+	 */
+	@Override
+	protected void initializeTimeseriesLoader() {
 		List<Timeseries> timeseries = new ArrayList<Timeseries>();
 		timeseries.add(new Timeseries("my timeseries 1", Color.RED, DataGenerator.generateTimeseries(1000)));
 		timeseries.add(new Timeseries("my timeseries 2", Color.GREEN, DataGenerator.generateTimeseries(1000)));
 		timeseries.add(new Timeseries("my timeseries 3", Color.BLUE, DataGenerator.generateTimeseries(1000)));
-		slickGraph.setTimeseries(timeseries);
+
+		timeseriesLoader = new InMemoryTimeseriesLoader(timeseries);
 	}
 
 }
