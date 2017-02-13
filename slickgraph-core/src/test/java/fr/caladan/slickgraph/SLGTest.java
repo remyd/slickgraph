@@ -66,13 +66,13 @@ public class SLGTest extends Application {
 		SlickGraph slg = new SlickGraph();
 		slg.setTimeseries(ts);
 
-		slg.scaledWidth = 100;
-		slg.scaledHeight = 10;
-		slg.buildHistogram(ts.get(0));
-		assertTrue(slg.mapHistograms.get(ts.get(0)).size() == Math.floor(6. * slg.kernelBandWidthProperty.get()) + 100);
+		// slg.scaledWidth = 100;
+		// slg.scaledHeight = 10;
+		// slg.buildHistogram(ts.get(0));
+		// assertTrue(slg.mapHistograms.get(ts.get(0)).size() == Math.floor(6. * slg.kernelBandWidthProperty.get()) + 100);
 
-		slg.computeConvolution(ts.get(0));
-		assertTrue(slg.mapSmoothedHistogram.get(ts.get(0)).size() == Math.floor(6. * slg.kernelBandWidthProperty.get()) + 100);
+		// slg.computeConvolution(ts.get(0));
+		// assertTrue(slg.mapSmoothedHistogram.get(ts.get(0)).size() == Math.floor(6. * slg.kernelBandWidthProperty.get()) + 100);
 	}
 
 	@Test

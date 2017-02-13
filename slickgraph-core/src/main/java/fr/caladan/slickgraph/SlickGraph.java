@@ -4,7 +4,6 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.HeadlessException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,12 +15,12 @@ import fr.caladan.slickgraph.StatisticKernel.KernelType;
 import javafx.animation.AnimationTimer;
 import javafx.beans.InvalidationListener;
 import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.ListProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleListProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
-import javafx.collections.ObservableList;
 import javafx.event.EventHandler;
 import javafx.scene.Group;
 import javafx.scene.canvas.Canvas;
@@ -48,10 +47,16 @@ public class SlickGraph extends Group {
 	public DoubleProperty heightProperty() {
 		return canvas.heightProperty();
 	}
-	
+	public Double getWidth() {
+		return widthProperty().get();
+	}
+	public Double getHeight() {
+		return heightProperty().get();
+	}
+
 	/** Timeseries to render */
-	protected ObservableList<Timeseries> timeseries;
-	public List<Timeseries> getTimeseries() {
+	protected ListProperty<Timeseries> timeseries;
+	public ListProperty<Timeseries> getTimeseries() {
 		return timeseries;
 	}
 	public void setTimeseries(List<Timeseries> timeseries) {
@@ -68,7 +73,7 @@ public class SlickGraph extends Group {
 			end = timeseries.get(0).getData().get(timeseries.get(0).getData().size() - 1);
 		}
 	}
-	
+
 	/** Type of the kernel to use to smooth the graph */
 	protected SimpleObjectProperty<KernelType> kernelTypeProperty;
 	public SimpleObjectProperty<KernelType> kernelTypeProperty() {
@@ -118,13 +123,40 @@ public class SlickGraph extends Group {
 	protected SimpleDoubleProperty yScaleProperty;
 
 	/** Width (in physical pixels) of the canvas */
-	protected double scaledWidth;
+	protected SimpleDoubleProperty scaledWidthProperty;
+	public SimpleDoubleProperty scaledWidthProperty() {
+		return scaledWidthProperty;
+	}
+	public double getScaledWidth() {
+		return scaledWidthProperty.get();
+	}
+	public void setScaledWidth(double scaledWidth) {
+		scaledWidthProperty.set(scaledWidth);
+	}
 
 	/** Height (in physical pixels) of the canvas */
-	protected double scaledHeight;
+	protected SimpleDoubleProperty scaledHeightProperty;
+	public SimpleDoubleProperty scaledHeightProperty() {
+		return scaledHeightProperty;
+	}
+	public double getScaledHeight() {
+		return scaledHeightProperty.get();
+	}
+	public void setScaledHeight(double scaledHeight) {
+		scaledHeightProperty.set(scaledHeight);
+	}
 
 	/** Number of pixels to trim from left and right sides to have an accurate rendering on the borders */
-	protected int toTrim;
+	protected SimpleIntegerProperty pixelsToTrimProperty;
+	public SimpleIntegerProperty pixelsToTrimProperty() {
+		return pixelsToTrimProperty;
+	}
+	public int getPixelsToTrim() {
+		return pixelsToTrimProperty.get();
+	}
+	public void setPixelsToTrim(int pixelsToTrim) {
+		pixelsToTrimProperty.set(pixelsToTrim);
+	}
 
 	/** Time cursor */
 	protected TimeCursor timeCursor;
@@ -207,9 +239,12 @@ public class SlickGraph extends Group {
 		
 		canvas = new Canvas();
 		getChildren().add(canvas);
-		timeseries = FXCollections.observableArrayList();
+		// timeseries = FXCollections.observableArrayList();
+		timeseries = new SimpleListProperty<Timeseries>();
 		kernelBandWidthProperty = new SimpleDoubleProperty(5.0);
 		kernelTypeProperty = new SimpleObjectProperty<KernelType>(KernelType.GAUSSIAN);
+		// toTrim = 0; // (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
+		pixelsToTrimProperty = new SimpleIntegerProperty((int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2));
 		mapHistograms = new HashMap<Timeseries, List<Double>>();
 		mapSmoothedHistogram = new HashMap<Timeseries, List<Double>>();
 		start = -1;
@@ -218,6 +253,8 @@ public class SlickGraph extends Group {
 		mapVertices = new HashMap<Timeseries, List<Vertex>>();
 		xScaleProperty = new SimpleDoubleProperty(1.);
 		yScaleProperty = new SimpleDoubleProperty(1.);
+		scaledWidthProperty = new SimpleDoubleProperty();
+		scaledHeightProperty = new SimpleDoubleProperty();
 		timeCursor = new TimeCursor();
 		getChildren().add(timeCursor);
 		timeCursorVisibleProperty = new SimpleBooleanProperty(true);
@@ -230,13 +267,17 @@ public class SlickGraph extends Group {
 		needsRefresh = new AtomicBoolean(false);
 
 		// render the graph when a timeseries is added or removed
-		timeseries.addListener((ListChangeListener.Change<? extends Timeseries> c) -> computeVertices());
+		// timeseries.addListener((ListChangeListener.Change<? extends Timeseries> c) -> computeVertices());
 
 		canvas.widthProperty().addListener(e -> handleHiDPI());
 		canvas.heightProperty().addListener(e -> handleHiDPI());
 		timeCursor.getCursorLine().endYProperty().bind(canvas.heightProperty());
 
-		kernelBandWidthProperty.addListener(e -> computeVertices());
+		kernelBandWidthProperty.addListener(e -> {
+			pixelsToTrimProperty.set((int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2));
+			// toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
+			computeVertices();
+		});
 		
 		// mouse event for the time cursor
 		EventHandler<? super InputEvent> mouseEventHandler = e -> {
@@ -246,16 +287,16 @@ public class SlickGraph extends Group {
 
 			double x = Math.max(0, Math.min(canvas.getWidth(), e instanceof MouseEvent ? ((MouseEvent) e).getX() : ((ScrollEvent) e).getX()));
 			double value = mapSmoothedHistogram.values().stream()
-					.mapToDouble(h -> h.get((int) (x * xScaleProperty.get()) + (int) Math.floor(3. * kernelBandWidthProperty.get())) * (end - start) / scaledWidth)
+					.mapToDouble(h -> h.get((int) (x * xScaleProperty.get()) + (int) Math.floor(3. * kernelBandWidthProperty.get())) * (end - start) / scaledWidthProperty.get())
 					.sum();
 			timeCursor.setTooltipText(" y = " + value + " ");
 			
-			timeCursor.setPosition(
+			/* timeCursor.setPosition(
 					x,
 					mapVertices.get(timeseries.get(timeseries.size() - 1)).get(
 							(int) Math.max(0, Math.round((x - 1) * 2. * xScaleProperty.get()) / 2 * 2)
 					).y / yScaleProperty.get()
-			);
+			); */
 			
 			needsRefresh.set(true);
 		};
@@ -307,7 +348,7 @@ public class SlickGraph extends Group {
 
 		List<Timeseries> timeseries = new ArrayList<Timeseries>();
 		timeseries.add(new Timeseries(data));
-		setTimeseries(timeseries);
+		// setTimeseries(timeseries);
 	}
 
 	/**
@@ -372,8 +413,8 @@ public class SlickGraph extends Group {
 		double xScale = nativeWidth / screenWidth;
 		double yScale = nativeHeight / screenHeight;
 
-		scaledWidth = canvas.getWidth() * xScale;
-		scaledHeight = canvas.getHeight() * yScale;
+		scaledWidthProperty.set(canvas.getWidth() * xScale);
+		scaledHeightProperty.set(canvas.getHeight() * yScale);
 
 		// back to scale 1:1
 		canvas.getGraphicsContext2D().scale(xScaleProperty.get(), yScaleProperty.get());
@@ -395,7 +436,7 @@ public class SlickGraph extends Group {
 	 * @param end End timestamp of the time window
 	 * @return
 	 */
-	protected double[] buildPixelBounds(double start, double end) {
+	/* protected double[] buildPixelBounds(double start, double end) {
 		toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
 		double timeSliceDuration = (end - start) / (scaledWidth);
 		double[] pixelBounds = new double[(int) (scaledWidth + 1 + 2 * toTrim)];
@@ -405,14 +446,14 @@ public class SlickGraph extends Group {
 		}
 
 		return pixelBounds;
-	}
+	} */
 
 	/**
 	 * Compute the aggregation of a timeseries based on the pixels
 	 *
 	 * @param timeseries Timeseries to aggregate
 	 */
-	protected void buildHistogram(Timeseries timeseries) {
+	/* protected void buildHistogram(Timeseries timeseries) {
 		List<Double> histogram = new ArrayList<Double>();
 
 		// build the timestamps at the pixels bounds
@@ -431,8 +472,7 @@ public class SlickGraph extends Group {
 		}
 
 		mapHistograms.put(timeseries, histogram);
-
-	}
+	} */
 
 	/**
 	 * Convolve the histogram with a statistic kernel for a given timeseries
@@ -473,8 +513,8 @@ public class SlickGraph extends Group {
 		List<Double> smoothedHistogram = mapSmoothedHistogram.get(ts);
 		List<Vertex> vertices = new ArrayList<Vertex>();
 		for (int i = 0; i < smoothedHistogram.size(); i++) {
-			vertices.add(new Vertex(i, (1. - smoothedHistogram.get(i) / max * .8) * scaledHeight, ts.getColor()));
-			vertices.add(new Vertex(i, scaledHeight));
+			vertices.add(new Vertex(i, (1. - smoothedHistogram.get(i) / max * .8) * scaledHeightProperty.get(), ts.getColor()));
+			vertices.add(new Vertex(i, scaledHeightProperty.get()));
 		}
 		mapVertices.put(ts, vertices);
 
@@ -485,7 +525,7 @@ public class SlickGraph extends Group {
 			vertices = new ArrayList<Vertex>();
 			List<Vertex> aboveVertices = mapVertices.get(timeseries.get(i - 1));
 			for (int j = 0; j < smoothedHistogram.size(); j++) {
-				vertices.add(new Vertex(aboveVertices.get(2 * j).x, aboveVertices.get(2 * j).y - smoothedHistogram.get(j) / max * .8 * scaledHeight, ts.getColor()));
+				vertices.add(new Vertex(aboveVertices.get(2 * j).x, aboveVertices.get(2 * j).y - smoothedHistogram.get(j) / max * .8 * scaledHeightProperty.get(), ts.getColor()));
 				vertices.add(new Vertex(aboveVertices.get(2 * j).x, aboveVertices.get(2 * j).y, ts.getColor()));
 			}
 
@@ -493,8 +533,9 @@ public class SlickGraph extends Group {
 		}
 
 		// trim 3 times the kernel bandwidth at each side
+		int toTrim = pixelsToTrimProperty.get();
 		mapVertices.forEach((t, vt) -> {
-			vt = vt.subList(toTrim * 2, vt.size() - toTrim * 2);
+			vt = vt.subList(toTrim * 1, vt.size() - toTrim * 1);
 			vt.forEach(v -> v.x -= toTrim);
 			mapVertices.put(t, vt);
 		});
@@ -515,7 +556,13 @@ public class SlickGraph extends Group {
 			slgAlphas.add(vh == 0 ? 0. : 1. / (1. + vsh / vh));
 		});
 
+		int toTrim = pixelsToTrimProperty.get();
 		slgAlphas = slgAlphas.subList(toTrim, slgAlphas.size() - toTrim);
+	}
+
+	public void update(Map<Timeseries, List<Double>> histograms) {
+		mapHistograms.putAll(histograms);
+		computeVertices();
 	}
 
 	/** Compute the vertices of the graph */
@@ -523,14 +570,15 @@ public class SlickGraph extends Group {
 		verticesReady.set(false);
 
 		// nothing to do if not shown yet or not data
-		if (canvas.getWidth() == 0. || canvas.getHeight() == 0. || timeseries.isEmpty()) {
+		if (canvas.getWidth() == 0. || canvas.getHeight() == 0.) { // || timeseries.isEmpty()) {
 			return;
 		}
 
 		// aggregate the timeseries
+		// mapHistograms.forEach((ts, d) -> computeConvolution(ts));
 		timeseries.stream().forEach(ts -> {
 			synchronized (ts) {
-				buildHistogram(ts);
+				// buildHistogram(ts);
 				computeConvolution(ts);
 			}
 		});
@@ -547,7 +595,7 @@ public class SlickGraph extends Group {
 	 *
 	 * @param z Y-delta of the zoom
 	 */
-	public void zoom(double z) {
+/* 	public void zoom(double z) {
 		double delta = 50. * (end - start) / canvas.getWidth();
 		if (z > 0) {
 			start += delta;
@@ -558,20 +606,20 @@ public class SlickGraph extends Group {
 		}
 
 		computeVertices();
-	}
+	} */
 
 	/**
 	 * Perform a pan
 	 *
 	 * @param deltaX Horizontal displacement of the mouse cursor
 	 */
-	public void pan(double deltaX) {
+/*	public void pan(double deltaX) {
 		double delta = deltaX * (end - start) / canvas.getWidth();
 		start += delta;
 		end += delta;
 
 		computeVertices();
-	}
+	} */
 
 	/**
 	 * Return the timeseries under the position (x, y)
@@ -603,7 +651,7 @@ public class SlickGraph extends Group {
 
 		// clear the canvas
 		gc.setFill(backgroundColorProperty.get());
-		gc.fillRect(0, 0, scaledWidth, scaledHeight);
+		gc.fillRect(0, 0, scaledWidthProperty.get(), scaledHeightProperty.get());
 
 		// render the shading
 		if (showShadingProperty.get()) {
@@ -611,7 +659,7 @@ public class SlickGraph extends Group {
 			List<Vertex> vertices = mapVertices.get(timeseries.get(timeseries.size() - 1));
 			for (int v = 0; v < vertices.size() - 1; v += 2) {
 				gc.setStroke(Color.rgb(0, 0, 0, slgAlphas.get(v / 2)));
-				gc.strokeLine(vertices.get(v).x, vertices.get(v).y, vertices.get(v + 1).x, scaledHeight);
+				gc.strokeLine(vertices.get(v).x, vertices.get(v).y, vertices.get(v + 1).x, scaledHeightProperty.get());
 			}
 
 			// render the curve
