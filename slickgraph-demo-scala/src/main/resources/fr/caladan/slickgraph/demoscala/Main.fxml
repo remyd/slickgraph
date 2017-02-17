@@ -17,6 +17,6 @@
             <CheckBox fx:id="showTimeCursorCheckBox" mnemonicParsing="false" selected="true" text="Show time cursor" />
          </items>
       </ToolBar>
-      <AnchorPane fx:id="root" prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="55.0" />
+      <AnchorPane fx:id="slgContainer" prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="55.0" />
    </children>
 </AnchorPane>

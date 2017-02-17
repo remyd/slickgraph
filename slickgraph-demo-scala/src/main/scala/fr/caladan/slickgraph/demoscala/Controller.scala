@@ -2,7 +2,6 @@ package fr.caladan.slickgraph.demoscala
 
 import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableValue
-import javafx.fxml.Initializable
 import java.net.URL
 import java.util.ResourceBundle
 import javafx.scene.layout.AnchorPane
@@ -15,22 +14,17 @@ import scala.collection.JavaConverters._
 
 import scalafx.Includes._
 import scalafx.scene.Group
-import scalafx.scene.input.MouseEvent
-import scalafx.scene.input.ScrollEvent
 import scalafx.scene.paint.Color
 
-import fr.caladan.slickgraph.SlickGraph
 import fr.caladan.slickgraph.Timeseries
+import fr.caladan.slickgraph.controller.SlickGraphController
+import fr.caladan.slickgraph.dataloader.InMemoryTimeseriesLoader
 
 /**
  * Controller showing how to bind the Slick Graph component events
  */
-class Controller extends Initializable {
-  
-  /** Root pane of the window */
-  @FXML
-  private var root: AnchorPane = _
-  
+class Controller extends SlickGraphController {
+   
   /** Tool bar containing the widgets */
   @FXML
   private var toolBar: ToolBar = _
@@ -51,20 +45,11 @@ class Controller extends Initializable {
   @FXML
   private var showTimeCursorCheckBox: CheckBox = _
 	
-  /** Slick Graph widget */
-  private var slickGraph: SlickGraph = _
-
-  /** Horizontal coordinate of the last mouse event */
-  private var origMouseX: Double = _
-
   override def initialize(location: URL, resources: ResourceBundle): Unit = {
-    // layout adjustment due to hidpi settings
-    root.height.onChange{ (_, _, newValue) => AnchorPane.setTopAnchor(root, toolBar.height()) }
+    super.initialize(location, resources)
 
-    slickGraph = new SlickGraph
-    slickGraph.widthProperty <== root.width
-    slickGraph.heightProperty <== root.height
-    root.getChildren.add(slickGraph)
+    // layout adjustment due to hidpi settings
+    slgContainer.height.onChange{ (_, _, newValue) => AnchorPane.setTopAnchor(slgContainer, toolBar.height()) }
 
     // bind the slider value to the kernel bandwidth
     smoothingSlider.setValue(slickGraph.getKernelBandWidth)
@@ -74,24 +59,9 @@ class Controller extends Initializable {
     slickGraph.showShadingProperty <== showShadingCheckBox.selected
     slickGraph.showCurveProperty <== showCurveCheckBox.selected
     slickGraph.timeCursorVisibleProperty <== showTimeCursorCheckBox.selected
+  }
 
-    origMouseX = 0
-
-    // pick timeseries at the mouse position
-    slickGraph.onMouseMoved = (e: MouseEvent) => slickGraph.pickTimeseries(e.x, e.y)
-
-    // zoom in data on scroll
-    slickGraph.onScroll = (e: ScrollEvent) => slickGraph.zoom(e.deltaY)
-
-    // save the position of the mouse when pressed
-    slickGraph.onMousePressed = (e: MouseEvent) => origMouseX = e.sceneX
-
-    // dragging the mouse performs a pan
-    slickGraph.onMouseDragged = (e: MouseEvent) => {
-      slickGraph.pan(origMouseX - e.sceneX)
-      origMouseX = e.sceneX
-    }
-
+  override def initializeTimeseriesLoader(): Unit = {
     // build the list of timeseries to visualize
     val colors: List[Color] = Color.Red :: Color.Green :: Color.Blue :: Nil
     val timeseries: Seq[Timeseries] = for (i <- 0 until 3) yield
@@ -100,8 +70,7 @@ class Controller extends Initializable {
         colors(i),
         DataGenerator.generateTimeseries(1000).map(java.lang.Double.valueOf(_)).asJava)
 
-    // feed the graph
-    slickGraph.setTimeseries(timeseries.asJava)
+    timeseriesLoader = new InMemoryTimeseriesLoader(timeseries.asJava)
   }
   
 }
