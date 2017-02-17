@@ -60,6 +60,10 @@ public class SlickGraph extends Group {
 		return timeseries;
 	}
 	public void setTimeseries(List<Timeseries> timeseries) {
+		if (!verticesReady.get()) {
+			return;
+		}
+
 		this.timeseries.forEach(ts -> ts.selectedProperty().removeListener(propertiesListener));
 		this.timeseries.clear();
 		this.timeseries.addAll(timeseries);
@@ -263,11 +267,8 @@ public class SlickGraph extends Group {
 		backgroundColorProperty = new SimpleObjectProperty<Color>(Color.WHITE);
 		showCurveProperty = new SimpleBooleanProperty(true);
 		curveColorProperty = new SimpleObjectProperty<Color>(Color.BLACK);
-		verticesReady = new AtomicBoolean(false);
+		verticesReady = new AtomicBoolean(true);
 		needsRefresh = new AtomicBoolean(false);
-
-		// render the graph when a timeseries is added or removed
-		// timeseries.addListener((ListChangeListener.Change<? extends Timeseries> c) -> computeVertices());
 
 		canvas.widthProperty().addListener(e -> handleHiDPI());
 		canvas.heightProperty().addListener(e -> handleHiDPI());
@@ -275,7 +276,6 @@ public class SlickGraph extends Group {
 
 		kernelBandWidthProperty.addListener(e -> {
 			pixelsToTrimProperty.set((int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2));
-			// toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
 			computeVertices();
 		});
 		
@@ -430,51 +430,6 @@ public class SlickGraph extends Group {
 	}
 
 	/**
-	 * Return the list of the array of events corresponding to the bounds of the pixels in a given time window
-	 *
-	 * @param start Start timestamp of the time window
-	 * @param end End timestamp of the time window
-	 * @return
-	 */
-	/* protected double[] buildPixelBounds(double start, double end) {
-		toTrim = (int) (Math.round(3. * kernelBandWidthProperty.get() / 2.) * 2);
-		double timeSliceDuration = (end - start) / (scaledWidth);
-		double[] pixelBounds = new double[(int) (scaledWidth + 1 + 2 * toTrim)];
-
-		for (int i = 0; i < pixelBounds.length; i++) {
-			pixelBounds[i] = start + i * timeSliceDuration;
-		}
-
-		return pixelBounds;
-	} */
-
-	/**
-	 * Compute the aggregation of a timeseries based on the pixels
-	 *
-	 * @param timeseries Timeseries to aggregate
-	 */
-	/* protected void buildHistogram(Timeseries timeseries) {
-		List<Double> histogram = new ArrayList<Double>();
-
-		// build the timestamps at the pixels bounds
-		double[] pixelBounds = buildPixelBounds(start, end);
-
-		// build the list of indices that correspond to the pixel bounds
-		List<Integer> listIndices = new ArrayList<Integer>();
-		for (int i = 0; i < pixelBounds.length; i++) {
-			int boundEvent = Collections.binarySearch(timeseries.getData(), pixelBounds[i]);
-			boundEvent = boundEvent >= 0 ? boundEvent : -boundEvent - 1;
-			listIndices.add(boundEvent);
-		}
-
-		for (int i = 0; i < listIndices.size() - 1; i++) {
-			histogram.add((listIndices.get(i + 1) - listIndices.get(i)) / (end - start) * scaledWidth);
-		}
-
-		mapHistograms.put(timeseries, histogram);
-	} */
-
-	/**
 	 * Convolve the histogram with a statistic kernel for a given timeseries
 	 *
 	 * @param timeseries Timeseries whose histogram is to convolve
@@ -508,7 +463,7 @@ public class SlickGraph extends Group {
 		 		.summaryStatistics()
 		 		.getMax();
 
-		// put the first timeseries at the bottom
+		// put the first time series at the bottom
 		Timeseries ts = timeseries.get(0);
 		List<Double> smoothedHistogram = mapSmoothedHistogram.get(ts);
 		List<Vertex> vertices = new ArrayList<Vertex>();
@@ -518,7 +473,7 @@ public class SlickGraph extends Group {
 		}
 		mapVertices.put(ts, vertices);
 
-		// stack the other timeseries
+		// stack the other time series
 		for (int i = 1; i < timeseries.size(); i++) {
 			ts = timeseries.get(i);
 			smoothedHistogram = mapSmoothedHistogram.get(ts);
@@ -560,66 +515,43 @@ public class SlickGraph extends Group {
 		slgAlphas = slgAlphas.subList(toTrim, slgAlphas.size() - toTrim);
 	}
 
+	/**
+	 * Update the vertices with the new histograms
+	 * 
+	 * @param histograms Histograms resulting from the new aggregation
+	 */
 	public void update(Map<Timeseries, List<Double>> histograms) {
+		if (!verticesReady.get()) {
+			return;
+		}
+		
+		verticesReady.set(false);
+
 		mapHistograms.putAll(histograms);
 		computeVertices();
+
+		verticesReady.set(true);
 	}
 
 	/** Compute the vertices of the graph */
 	protected void computeVertices() {
-		verticesReady.set(false);
-
 		// nothing to do if not shown yet or not data
-		if (canvas.getWidth() == 0. || canvas.getHeight() == 0.) { // || timeseries.isEmpty()) {
+		if (canvas.getWidth() == 0. || canvas.getHeight() == 0.) {
 			return;
 		}
 
-		// aggregate the timeseries
-		// mapHistograms.forEach((ts, d) -> computeConvolution(ts));
+		// aggregate the time series
 		timeseries.stream().forEach(ts -> {
 			synchronized (ts) {
-				// buildHistogram(ts);
 				computeConvolution(ts);
 			}
 		});
 
 		computeStackedVertices();
 		computeSlgAlphas();
-		
-		verticesReady.set(true);
+
 		needsRefresh.set(true);
 	}
-
-	/**
-	 * Perform a zoom
-	 *
-	 * @param z Y-delta of the zoom
-	 */
-/* 	public void zoom(double z) {
-		double delta = 50. * (end - start) / canvas.getWidth();
-		if (z > 0) {
-			start += delta;
-			end -= delta;
-		} else {
-			start -= delta;
-			end += delta;
-		}
-
-		computeVertices();
-	} */
-
-	/**
-	 * Perform a pan
-	 *
-	 * @param deltaX Horizontal displacement of the mouse cursor
-	 */
-/*	public void pan(double deltaX) {
-		double delta = deltaX * (end - start) / canvas.getWidth();
-		start += delta;
-		end += delta;
-
-		computeVertices();
-	} */
 
 	/**
 	 * Return the timeseries under the position (x, y)

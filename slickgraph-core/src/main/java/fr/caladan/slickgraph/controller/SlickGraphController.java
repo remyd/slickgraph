@@ -75,15 +75,17 @@ public abstract class SlickGraphController implements Initializable {
 		slickGraph.scaledWidthProperty().addListener(e -> {
 			timeseriesLoader.setNbTimeSlices(slickGraph.getScaledWidth());
 			timeseriesLoader.updateTimeWindow(timeseriesLoader.getStartTimeWindow(), timeseriesLoader.getEndTimeWindow());
+			slickGraph.update(timeseriesLoader.getHistograms());
 		});
 
 		// model events
 		slickGraph.pixelsToTrimProperty().addListener(e -> {
 			timeseriesLoader.setPixelsToTrim(slickGraph.getPixelsToTrim());
 			timeseriesLoader.updateTimeWindow(timeseriesLoader.getStartTimeWindow(), timeseriesLoader.getEndTimeWindow());
+			slickGraph.update(timeseriesLoader.getHistograms());
 		});
+
 		slickGraph.getTimeseries().bind(timeseriesLoader.getTimeseries());
-		timeseriesLoader.getHistograms().addListener((histograms, oldValue, newValue) -> slickGraph.update(histograms.getValue()));
 	}
 
 	protected void onMousePressed(MouseEvent event) {
@@ -97,10 +99,12 @@ public abstract class SlickGraphController implements Initializable {
 	protected void onMouseDragged(MouseEvent event) {
 		timeseriesLoader.pan(origMouseX - event.getSceneX());
 		origMouseX = event.getSceneX();
+		slickGraph.update(timeseriesLoader.getHistograms());
 	}
 
 	protected void onMouseScroll(ScrollEvent event) {
 		timeseriesLoader.zoom(event.getDeltaY());
+		slickGraph.update(timeseriesLoader.getHistograms());
 	}
 
 }
